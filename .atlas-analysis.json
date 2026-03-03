@@ -1,0 +1,132 @@
+{
+  "projectType": "saas",
+  "projectName": "Appsiel Print Manager (APM)",
+  "projectDescription": "Network printer management and real-time scale data capture via WebSocket for POS systems",
+  "theme": "aspen",
+  "primaryColor": "#2563EB",
+  "lightColor": "#60A5FA",
+  "darkColor": "#1E40AF",
+  "navigation": {
+    "tabs": [
+      {
+        "tab": "Documentation",
+        "groups": [
+          {
+            "group": "Getting Started",
+            "pages": [
+              "introduction",
+              "installation",
+              "quickstart"
+            ]
+          },
+          {
+            "group": "Core Features",
+            "pages": [
+              "features/printer-management",
+              "features/scale-integration",
+              "features/websocket-server",
+              "features/template-system"
+            ]
+          },
+          {
+            "group": "Architecture",
+            "pages": [
+              "architecture/overview",
+              "architecture/components",
+              "architecture/worker-service",
+              "architecture/maui-application"
+            ]
+          },
+          {
+            "group": "User Guides",
+            "pages": [
+              "guides/printer-configuration",
+              "guides/scale-configuration",
+              "guides/template-editor",
+              "guides/tray-application"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "API Reference",
+        "groups": [
+          {
+            "group": "WebSocket API",
+            "pages": [
+              "api/websocket-overview",
+              "api/print-jobs",
+              "api/scale-data",
+              "api/template-updates"
+            ]
+          },
+          {
+            "group": "Core Interfaces",
+            "pages": [
+              "api/interfaces/print-service",
+              "api/interfaces/scale-service",
+              "api/interfaces/websocket-service",
+              "api/interfaces/template-repository"
+            ]
+          },
+          {
+            "group": "Data Models",
+            "pages": [
+              "api/models/print-job-request",
+              "api/models/printer-settings",
+              "api/models/scale-data",
+              "api/models/print-template"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "Templates",
+        "groups": [
+          {
+            "group": "Template System",
+            "pages": [
+              "templates/overview",
+              "templates/structure",
+              "templates/sections",
+              "templates/elements"
+            ]
+          },
+          {
+            "group": "Formatting",
+            "pages": [
+              "templates/text-formatting",
+              "templates/barcodes-qr",
+              "templates/tables",
+              "templates/examples"
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "keyFeatures": [
+    "Network thermal printer management via TCP/IP, USB, and IPP protocols",
+    "Real-time scale data capture from serial ports with WebSocket broadcasting",
+    "JSON-based template system for customizable receipt and document layouts",
+    "Windows Service for background operation and system tray management",
+    "Cross-platform MAUI application for Android and Windows configuration",
+    "ESC/POS command generation for thermal and dot-matrix printers",
+    "WebSocket server on port 7000 for POS system integration",
+    "Multi-printer support with copy-to functionality"
+  ],
+  "publicApiSurface": [
+    "IPrintService.ProcessPrintJobAsync",
+    "IPrintService.ConfigurePrinterAsync",
+    "IScaleService.InitializeAsync",
+    "IScaleService.StartListening",
+    "IWebSocketService.StartServerAsync",
+    "IWebSocketService.SendPrintJobResultToAllClientsAsync",
+    "IWebSocketService.SendScaleDataToAllClientsAsync",
+    "ITemplateRepository.SaveTemplateAsync",
+    "ITemplateRepository.GetTemplateByDocumentTypeAsync",
+    "PrintJobRequest (WebSocket message type)",
+    "PrintTemplate (Template configuration model)",
+    "ScaleData (Scale reading broadcast model)"
+  ]
+}
