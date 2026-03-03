@@ -1,0 +1,515 @@
+---
+title: 'IWebSocketService'
+description: 'Interface for the WebSocket service that manages client connections, receives print requests, and broadcasts results and scale data'
+---
+
+## Overview
+
+The `IWebSocketService` interface defines the WebSocket server contract for the Appsiel Print Manager. It acts as a local server that listens for client connections (e.g., from Appsiel web pages), receives print job requests and template updates, and sends results and scale data to connected clients.
+
+**Namespace:** `AppsielPrintManager.Core.Interfaces`
+
+## Events
+
+### OnClientConnected
+
+Event triggered when a new client connects to the WebSocket server.
+
+```csharp
+event AsyncEventHandler<string> OnClientConnected
+```
+
+**Event Args:** `string` - The unique identifier of the connected client
+
+**Example:**
+
+```csharp
+public class WebSocketManager
+{
+    private readonly IWebSocketService _webSocketService;
+
+    public WebSocketManager(IWebSocketService webSocketService)
+    {
+        _webSocketService = webSocketService;
+        _webSocketService.OnClientConnected += HandleClientConnected;
+    }
+
+    private async Task HandleClientConnected(object sender, string clientId)
+    {
+        Console.WriteLine($"Client connected: {clientId}");
+        Console.WriteLine($"Total clients: {_webSocketService.CurrentClientCount}");
+    }
+}
+```
+
+---
+
+### OnClientDisconnected
+
+Event triggered when a client disconnects from the WebSocket server.
+
+```csharp
+event AsyncEventHandler<string> OnClientDisconnected
+```
+
+**Event Args:** `string` - The unique identifier of the disconnected client
+
+**Example:**
+
+```csharp
+private async Task HandleClientDisconnected(object sender, string clientId)
+{
+    Console.WriteLine($"Client disconnected: {clientId}");
+    Console.WriteLine($"Remaining clients: {_webSocketService.CurrentClientCount}");
+}
+```
+
+---
+
+### OnPrintJobReceived
+
+Event triggered when a print job request is received from a client.
+
+```csharp
+event AsyncEventHandler<WebSocketMessageReceivedEventArgs<PrintJobRequest>> OnPrintJobReceived
+```
+
+**Event Args:** `WebSocketMessageReceivedEventArgs<PrintJobRequest>` containing:
+- `ClientId` (string): The identifier of the client that sent the request
+- `Message` (PrintJobRequest): The print job request details
+
+**Example:**
+
+```csharp
+private async Task HandlePrintJobReceived(
+    object sender, 
+    WebSocketMessageReceivedEventArgs<PrintJobRequest> e)
+{
+    Console.WriteLine($"Print job received from client: {e.ClientId}");
+    Console.WriteLine($"Document type: {e.Message.DocumentType}");
+    Console.WriteLine($"Printer ID: {e.Message.PrinterId}");
+
+    // Process the print job
+    var result = await _printService.ProcessPrintJobAsync(e.Message);
+
+    // Send result back to the client
+    await _webSocketService.SendPrintJobResultToClientAsync(e.ClientId, result);
+}
+```
+
+---
+
+### OnTemplateUpdateReceived
+
+Event triggered when a template update request is received from a client.
+
+```csharp
+event AsyncEventHandler<WebSocketMessageReceivedEventArgs<PrintTemplate>> OnTemplateUpdateReceived
+```
+
+**Event Args:** `WebSocketMessageReceivedEventArgs<PrintTemplate>` containing:
+- `ClientId` (string): The identifier of the client that sent the request
+- `Message` (PrintTemplate): The template update details
+
+**Example:**
+
+```csharp
+private async Task HandleTemplateUpdateReceived(
+    object sender,
+    WebSocketMessageReceivedEventArgs<PrintTemplate> e)
+{
+    Console.WriteLine($"Template update received from client: {e.ClientId}");
+    Console.WriteLine($"Template ID: {e.Message.TemplateId}");
+
+    try
+    {
+        await _templateRepository.SaveTemplateAsync(e.Message);
+
+        var result = new TemplateUpdateResult
+        {
+            Success = true,
+            TemplateId = e.Message.TemplateId,
+            Message = "Template updated successfully"
+        };
+
+        await _webSocketService.SendTemplateUpdateResultAsync(e.ClientId, result);
+    }
+    catch (Exception ex)
+    {
+        var result = new TemplateUpdateResult
+        {
+            Success = false,
+            TemplateId = e.Message.TemplateId,
+            ErrorMessage = ex.Message
+        };
+
+        await _webSocketService.SendTemplateUpdateResultAsync(e.ClientId, result);
+    }
+}
+```
+
+## Methods
+
+### StartServerAsync
+
+Starts the WebSocket server on the specified port.
+
+```csharp
+Task StartServerAsync(int port)
+```
+
+<ParamField path="port" type="int" required>
+  The port number to listen on for WebSocket connections
+</ParamField>
+
+<ResponseField name="return" type="Task">
+  A task representing the asynchronous server start operation
+</ResponseField>
+
+**Example:**
+
+```csharp
+await webSocketService.StartServerAsync(8080);
+Console.WriteLine($"WebSocket server started on port 8080");
+Console.WriteLine($"Server running: {webSocketService.IsRunning}");
+```
+
+---
+
+### StopServerAsync
+
+Stops the WebSocket server and disconnects all clients.
+
+```csharp
+Task StopServerAsync()
+```
+
+<ResponseField name="return" type="Task">
+  A task representing the asynchronous server stop operation
+</ResponseField>
+
+**Example:**
+
+```csharp
+await webSocketService.StopServerAsync();
+Console.WriteLine("WebSocket server stopped");
+```
+
+---
+
+### SendPrintJobResultToAllClientsAsync
+
+Broadcasts a print job result to all connected clients.
+
+```csharp
+Task SendPrintJobResultToAllClientsAsync(PrintJobResult result)
+```
+
+<ParamField path="result" type="PrintJobResult" required>
+  The print job result to broadcast
+</ParamField>
+
+<ResponseField name="return" type="Task">
+  A task representing the asynchronous broadcast operation
+</ResponseField>
+
+**Example:**
+
+```csharp
+var result = await printService.ProcessPrintJobAsync(request);
+
+// Broadcast result to all connected clients
+await webSocketService.SendPrintJobResultToAllClientsAsync(result);
+Console.WriteLine($"Broadcast print result to {webSocketService.CurrentClientCount} clients");
+```
+
+---
+
+### SendPrintJobResultToClientAsync
+
+Sends a print job result to a specific client (unicast).
+
+```csharp
+Task SendPrintJobResultToClientAsync(string clientId, PrintJobResult result)
+```
+
+<ParamField path="clientId" type="string" required>
+  The unique identifier of the client to send the result to
+</ParamField>
+
+<ParamField path="result" type="PrintJobResult" required>
+  The print job result to send
+</ParamField>
+
+<ResponseField name="return" type="Task">
+  A task representing the asynchronous send operation
+</ResponseField>
+
+**Example:**
+
+```csharp
+// Send result only to the client that requested the print job
+await webSocketService.SendPrintJobResultToClientAsync(clientId, result);
+Console.WriteLine($"Sent print result to client {clientId}");
+```
+
+---
+
+### SendScaleDataToAllClientsAsync
+
+Broadcasts scale weight data to all connected clients.
+
+```csharp
+Task SendScaleDataToAllClientsAsync(ScaleData scaleData)
+```
+
+<ParamField path="scaleData" type="ScaleData" required>
+  The scale data to broadcast
+</ParamField>
+
+<ResponseField name="return" type="Task">
+  A task representing the asynchronous broadcast operation
+</ResponseField>
+
+**Example:**
+
+```csharp
+private async Task OnWeightChanged(object sender, ScaleDataEventArgs e)
+{
+    // Broadcast scale data to all connected web clients
+    await webSocketService.SendScaleDataToAllClientsAsync(e.Data);
+    Console.WriteLine($"Broadcast weight data: {e.Data.Weight} {e.Data.Unit}");
+}
+```
+
+---
+
+### SendTemplateUpdateResultAsync
+
+Sends a template update result to a specific client.
+
+```csharp
+Task SendTemplateUpdateResultAsync(string clientId, TemplateUpdateResult result)
+```
+
+<ParamField path="clientId" type="string" required>
+  The unique identifier of the client to send the result to
+</ParamField>
+
+<ParamField path="result" type="TemplateUpdateResult" required>
+  The template update result to send
+</ParamField>
+
+<ResponseField name="return" type="Task">
+  A task representing the asynchronous send operation
+</ResponseField>
+
+**Example:**
+
+```csharp
+var updateResult = new TemplateUpdateResult
+{
+    Success = true,
+    TemplateId = template.TemplateId,
+    Message = "Template saved successfully"
+};
+
+await webSocketService.SendTemplateUpdateResultAsync(clientId, updateResult);
+```
+
+## Properties
+
+### IsRunning
+
+Gets a value indicating whether the WebSocket server is currently running.
+
+```csharp
+bool IsRunning { get; }
+```
+
+**Example:**
+
+```csharp
+if (webSocketService.IsRunning)
+{
+    Console.WriteLine("WebSocket server is active");
+}
+else
+{
+    Console.WriteLine("WebSocket server is stopped");
+}
+```
+
+---
+
+### CurrentClientCount
+
+Gets the number of clients currently connected to the WebSocket server.
+
+```csharp
+int CurrentClientCount { get; }
+```
+
+**Example:**
+
+```csharp
+Console.WriteLine($"Active connections: {webSocketService.CurrentClientCount}");
+```
+
+## Supporting Types
+
+### WebSocketMessageReceivedEventArgs&lt;T&gt;
+
+Generic event arguments for messages received via WebSocket.
+
+```csharp
+public class WebSocketMessageReceivedEventArgs<T> : EventArgs
+{
+    public string ClientId { get; }
+    public T Message { get; }
+
+    public WebSocketMessageReceivedEventArgs(string clientId, T message)
+    {
+        ClientId = clientId;
+        Message = message;
+    }
+}
+```
+
+### AsyncEventHandler&lt;TEventArgs&gt;
+
+Delegate for asynchronous event handlers.
+
+```csharp
+public delegate Task AsyncEventHandler<TEventArgs>(object sender, TEventArgs e);
+```
+
+## Complete Usage Example
+
+```csharp
+public class PrintManagerHost
+{
+    private readonly IWebSocketService _webSocketService;
+    private readonly IPrintService _printService;
+    private readonly IScaleService _scaleService;
+    private readonly ILogger<PrintManagerHost> _logger;
+
+    public PrintManagerHost(
+        IWebSocketService webSocketService,
+        IPrintService printService,
+        IScaleService scaleService,
+        ILogger<PrintManagerHost> logger)
+    {
+        _webSocketService = webSocketService;
+        _printService = printService;
+        _scaleService = scaleService;
+        _logger = logger;
+
+        // Subscribe to WebSocket events
+        _webSocketService.OnClientConnected += HandleClientConnected;
+        _webSocketService.OnClientDisconnected += HandleClientDisconnected;
+        _webSocketService.OnPrintJobReceived += HandlePrintJobReceived;
+        _webSocketService.OnTemplateUpdateReceived += HandleTemplateUpdateReceived;
+
+        // Subscribe to scale events
+        _scaleService.OnWeightChanged += HandleWeightChanged;
+    }
+
+    public async Task StartAsync(int port = 8080)
+    {
+        // Start WebSocket server
+        await _webSocketService.StartServerAsync(port);
+        _logger.LogInformation($"WebSocket server started on port {port}");
+
+        // Initialize scales
+        await _scaleService.InitializeAsync();
+        _logger.LogInformation("Scale service initialized");
+    }
+
+    private async Task HandleClientConnected(object sender, string clientId)
+    {
+        _logger.LogInformation($"Client connected: {clientId}");
+        _logger.LogInformation($"Total clients: {_webSocketService.CurrentClientCount}");
+    }
+
+    private async Task HandleClientDisconnected(object sender, string clientId)
+    {
+        _logger.LogInformation($"Client disconnected: {clientId}");
+    }
+
+    private async Task HandlePrintJobReceived(
+        object sender,
+        WebSocketMessageReceivedEventArgs<PrintJobRequest> e)
+    {
+        _logger.LogInformation(
+            $"Print job received from {e.ClientId}: {e.Message.DocumentType}"
+        );
+
+        try
+        {
+            // Process the print job
+            var result = await _printService.ProcessPrintJobAsync(e.Message);
+
+            // Send result back to the requesting client
+            await _webSocketService.SendPrintJobResultToClientAsync(e.ClientId, result);
+
+            if (result.Success)
+            {
+                _logger.LogInformation($"Print job {result.JobId} completed successfully");
+            }
+            else
+            {
+                _logger.LogError($"Print job failed: {result.ErrorMessage}");
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error processing print job");
+
+            var errorResult = new PrintJobResult
+            {
+                Success = false,
+                ErrorMessage = ex.Message
+            };
+
+            await _webSocketService.SendPrintJobResultToClientAsync(e.ClientId, errorResult);
+        }
+    }
+
+    private async Task HandleTemplateUpdateReceived(
+        object sender,
+        WebSocketMessageReceivedEventArgs<PrintTemplate> e)
+    {
+        _logger.LogInformation(
+            $"Template update received from {e.ClientId}: {e.Message.TemplateId}"
+        );
+
+        // Implementation handled by template repository
+    }
+
+    private async void HandleWeightChanged(object sender, ScaleDataEventArgs e)
+    {
+        // Broadcast scale data to all connected clients
+        await _webSocketService.SendScaleDataToAllClientsAsync(e.Data);
+        
+        _logger.LogDebug(
+            $"Broadcast scale data from {e.ScaleId}: {e.Data.Weight} {e.Data.Unit}"
+        );
+    }
+
+    public async Task StopAsync()
+    {
+        await _webSocketService.StopServerAsync();
+        _logger.LogInformation("WebSocket server stopped");
+    }
+}
+```
+
+## See Also
+
+- [IPrintService](/api/interfaces/print-service)
+- [IScaleService](/api/interfaces/scale-service)
+- [Print Job Request](/api/models/print-job-request)
+- [Scale Data](/api/models/scale-data)
+- [Print Jobs API](/api/print-jobs)
+- [WebSocket Overview](/api/websocket-overview)

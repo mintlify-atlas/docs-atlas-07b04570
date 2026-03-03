@@ -1,0 +1,137 @@
+---
+title: Template System Overview
+description: Introduction to APM's JSON-based template system for print customization
+---
+
+## Overview
+
+The APM Template System allows you to define custom print layouts using JSON configuration files. Templates control how documents (tickets, invoices, reports) are formatted and printed on thermal printers.
+
+Templates are stored in JSON format in the application's data folder and can be customized to match your business requirements.
+
+## Key Concepts
+
+### Templates
+
+A **template** is a complete print layout definition that includes:
+
+- **DocumentType**: The type of document (e.g., `ticket_venta`, `invoice`)
+- **Name**: A descriptive name for the template
+- **Sections**: An array of logical sections that make up the document
+- **GlobalStyles**: Optional global styling configuration
+
+### Sections
+
+Each template is composed of **sections** that represent logical blocks of the document:
+
+- **Static Sections**: Sequential elements printed in order (e.g., header, totals)
+- **Table Sections**: Columnar data with headers (e.g., line items)
+- **Repeated Sections**: Lists of simple values (e.g., footer messages)
+
+Sections are printed in order based on their `Order` property.
+
+### Elements
+
+Within each section, **elements** define the individual components to print:
+
+- **Text**: Static or dynamic text content
+- **Line**: Horizontal separator lines
+- **Barcode**: 1D barcode generation
+- **QR**: QR code generation
+- **Image**: Image embedding
+
+## Template Structure
+
+```json
+{
+  "DocumentType": "ticket_venta",
+  "Name": "Standard Sales Ticket",
+  "Sections": [
+    {
+      "Name": "Header",
+      "Type": "Static",
+      "Order": 1,
+      "Elements": [...]
+    },
+    {
+      "Name": "Items",
+      "Type": "Table",
+      "Order": 2,
+      "DataSource": "Sale.Items",
+      "Elements": [...]
+    },
+    {
+      "Name": "Footer",
+      "Type": "Repeated",
+      "Order": 3,
+      "DataSource": "Footer",
+      "Elements": [...]
+    }
+  ]
+}
+```
+
+## Data Binding
+
+Templates use **data sources** to bind dynamic content:
+
+- **Source**: Path to data property (e.g., `"Sale.Total"`, `"Store.Address"`)
+- **DataSource**: Path to collection for Table and Repeated sections (e.g., `"Sale.Items"`)
+- **StaticValue**: Fixed text when no data binding is needed
+
+### Special Data References
+
+- Use `"."` as the `Source` in Repeated sections to reference the current item value directly
+- Navigate object hierarchies with dot notation (e.g., `"Sale.Customer.Name"`)
+
+## Formatting and Styling
+
+Templates support extensive formatting options:
+
+- **Alignment**: Left, Center, Right
+- **Font Styles**: Bold, Underline
+- **Font Types**: FontA (48 chars/line on 80mm), FontB (64 chars/line on 80mm)
+- **Sizes**: Large, DoubleWidth, Size2-Size8
+
+Formats can be applied at section level (inherited by all elements) or element level (overrides section format).
+
+## Use Cases
+
+### Sales Receipts
+- Store header with logo/name
+- Line items in table format
+- Totals and payment information
+- Footer with QR code or promotional messages
+
+### Invoices
+- Company and customer information
+- Itemized product/service list
+- Tax calculations
+- Legal text and invoice number barcode
+
+### Reports
+- Summary headers
+- Data tables with multiple columns
+- Totals and statistics
+
+## Template Storage
+
+Templates are stored as JSON files in the application's data directory. Each template file corresponds to a specific document type and can be:
+
+- Created through the Template Editor UI
+- Manually edited as JSON files
+- Imported/exported for backup or sharing
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Template Structure" icon="sitemap" href="/templates/structure">
+    Learn about the JSON structure and properties
+  </Card>
+  <Card title="Sections" icon="layer-group" href="/templates/sections">
+    Understand Static, Table, and Repeated sections
+  </Card>
+  <Card title="Elements" icon="puzzle-piece" href="/templates/elements">
+    Explore Text, Barcode, QR, Image, and Line elements
+  </Card>
+</CardGroup>

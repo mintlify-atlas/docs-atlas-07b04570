@@ -1,0 +1,302 @@
+---
+title: Installation
+description: Install and configure Appsiel Print Manager on Windows
+---
+
+## System requirements
+
+Before installing APM, ensure your system meets these requirements:
+
+<CardGroup cols={2}>
+  <Card title="Operating system" icon="windows">
+    Windows 10/11 or Windows Server 2019+
+  </Card>
+  <Card title="Runtime" icon="code">
+    .NET 10 Runtime (included in installer)
+  </Card>
+  <Card title="Network" icon="wifi">
+    Local network access for TCP/IP printers
+  </Card>
+  <Card title="Permissions" icon="shield">
+    Administrator rights for service installation
+  </Card>
+</CardGroup>
+
+## Installation methods
+
+APM offers two components that can be installed independently or together:
+
+1. **Windows Service** - Background service for print job processing
+2. **MAUI Application** - Desktop UI for configuration and monitoring
+
+<Note>
+  For production environments, install the Windows Service on a dedicated workstation or server. The MAUI app can be installed on administrator machines for configuration.
+</Note>
+
+## Windows Service installation
+
+The Windows Service runs as a background process and handles all print job processing.
+
+<Steps>
+  <Step title="Build the service">
+    Use the included PowerShell script to publish the service:
+
+    ```powershell
+    cd /path/to/source
+    .\publish_worker.ps1
+    ```
+
+    This creates a self-contained deployment in `./publish/windows/worker/`.
+
+    <Accordion title="What does publish_worker.ps1 do?">
+      The script located at `/home/daytona/workspace/source/publish_worker.ps1:1` performs these steps:
+      - Cleans previous build artifacts
+      - Publishes the WorkerService project for Windows x64
+      - Includes all dependencies (no .NET installation required)
+      - Outputs to `./publish/windows/worker/`
+    </Accordion>
+  </Step>
+
+  <Step title="Install as Windows Service">
+    Open an elevated PowerShell/Command Prompt and navigate to the publish directory:
+
+    ```powershell
+    cd ./publish/windows/worker
+    sc.exe create "AppsielPrintManager" binPath= "C:\\path\\to\\publish\\windows\\worker\\WorkerService.exe"
+    sc.exe start "AppsielPrintManager"
+    ```
+
+    <Note>
+      Replace `C:\\path\\to\\publish\\windows\\worker\\WorkerService.exe` with the actual full path to your published executable.
+    </Note>
+  </Step>
+
+  <Step title="Verify service status">
+    Check that the service is running:
+
+    ```powershell
+    sc.exe query "AppsielPrintManager"
+    ```
+
+    You should see `STATE: 4 RUNNING`.
+  </Step>
+
+  <Step title="Test WebSocket connectivity">
+    The service starts a WebSocket server on port 7000. Test connectivity using a browser console:
+
+    ```javascript
+    const ws = new WebSocket('ws://localhost:7000/websocket/');
+    ws.onopen = () => console.log('Connected to APM!');
+    ws.onerror = (err) => console.error('Connection failed:', err);
+    ```
+
+    If the connection succeeds, the service is running correctly.
+  </Step>
+</Steps>
+
+### Service configuration
+
+The Windows Service is configured in `/home/daytona/workspace/source/WorkerService/Program.cs:1` with these registered services:
+
+<CodeGroup>
+```csharp Dependency Injection
+services.AddSingleton<IWebSocketService, WebSocketServerService>();
+services.AddSingleton<IPrintService, PrintService>();
+services.AddSingleton<ITicketRenderer, TicketRendererService>();
+services.AddSingleton<IEscPosGenerator, EscPosGeneratorService>();
+services.AddSingleton<ITemplateRepository, TemplateRepository>();
+```
+
+```csharp Service Startup
+await _webSocketService.StartServerAsync(WebSocketPort); // Port 7000
+await _templateRepository.EnsureDefaultTemplatesAsync();
+```
+</CodeGroup>
+
+Refer to `/home/daytona/workspace/source/WorkerService/Worker.cs:74` for the service initialization logic.
+
+<Warning>
+  The service listens on `localhost:7000` by default. If you need to accept connections from other machines, modify the `StartServerAsync` call to bind to `0.0.0.0`.
+</Warning>
+
+## MAUI Application installation
+
+The MAUI application provides a graphical interface for managing printers, templates, and viewing logs.
+
+<Steps>
+  <Step title="Build the MAUI app">
+    Build the UI project for Windows:
+
+    ```powershell
+    cd /path/to/source
+    dotnet build UI/UI.csproj -c Release -f net10.0-windows10.0.19041.0
+    ```
+  </Step>
+
+  <Step title="Publish for deployment">
+    Create a standalone deployment:
+
+    ```powershell
+    dotnet publish UI/UI.csproj -c Release -f net10.0-windows10.0.19041.0 -o ./publish/windows/ui
+    ```
+  </Step>
+
+  <Step title="Run the application">
+    Execute the published app:
+
+    ```powershell
+    ./publish/windows/ui/UI.exe
+    ```
+
+    The application will launch and attempt to connect to the Windows Service if it's running.
+  </Step>
+</Steps>
+
+### MAUI app features
+
+The MAUI application provides these capabilities:
+
+<CardGroup cols={2}>
+  <Card title="Printer management" icon="print">
+    Add, edit, and test printer configurations with support for TCP, USB, and IPP connections
+  </Card>
+  <Card title="Template editor" icon="file-code">
+    Visual editor for creating and modifying print templates
+  </Card>
+  <Card title="Scale configuration" icon="scale-balanced">
+    Configure serial scales with baud rate and data format settings
+  </Card>
+  <Card title="Service control" icon="gear">
+    Start, stop, and monitor the Windows Service (Windows only)
+  </Card>
+  <Card title="Log viewer" icon="list">
+    Real-time log monitoring with filtering capabilities
+  </Card>
+  <Card title="Test printing" icon="vial">
+    Send test print jobs to verify printer configuration
+  </Card>
+</CardGroup>
+
+Refer to `/home/daytona/workspace/source/UI/MauiProgram.cs:1` for the complete service registration.
+
+## Data storage locations
+
+APM stores configuration and templates in platform-specific locations:
+
+| Data Type | Windows Location |
+| --- | --- |
+| Printer settings | `%APPDATA%\\AppsielPrintManager\\printers.json` |
+| Print templates | `%APPDATA%\\AppsielPrintManager\\templates\\` |
+| Scale settings | `%APPDATA%\\AppsielPrintManager\\scales.json` |
+| Application logs | `%APPDATA%\\AppsielPrintManager\\logs\\` |
+
+<Note>
+  Both the Windows Service and MAUI app share the same data directory, allowing you to configure printers in the UI and have them immediately available to the service.
+</Note>
+
+## Firewall configuration
+
+If you plan to accept WebSocket connections from other machines on the network:
+
+<Steps>
+  <Step title="Open Windows Firewall">
+    Press `Win + R`, type `wf.msc`, and press Enter.
+  </Step>
+
+  <Step title="Create inbound rule">
+    Right-click "Inbound Rules" → "New Rule" → "Port" → "TCP" → Specific port: `7000`
+  </Step>
+
+  <Step title="Allow the connection">
+    Select "Allow the connection" → Apply to all profiles → Name: "APM WebSocket"
+  </Step>
+</Steps>
+
+## Uninstallation
+
+To remove APM from your system:
+
+<Tabs>
+  <Tab title="Windows Service">
+    ```powershell
+    # Stop the service
+    sc.exe stop "AppsielPrintManager"
+    
+    # Delete the service
+    sc.exe delete "AppsielPrintManager"
+    
+    # Remove the published files
+    Remove-Item -Path "C:\\path\\to\\publish\\windows\\worker" -Recurse
+    ```
+  </Tab>
+
+  <Tab title="MAUI Application">
+    ```powershell
+    # Remove the published application
+    Remove-Item -Path "C:\\path\\to\\publish\\windows\\ui" -Recurse
+    ```
+  </Tab>
+
+  <Tab title="Configuration Data">
+    ```powershell
+    # Remove all configuration and templates (optional)
+    Remove-Item -Path "$env:APPDATA\\AppsielPrintManager" -Recurse
+    ```
+  </Tab>
+</Tabs>
+
+## Troubleshooting
+
+<AccordionGroup>
+  <Accordion title="Service won't start">
+    Check the Windows Event Viewer:
+    1. Open Event Viewer (`eventvwr.msc`)
+    2. Navigate to Windows Logs → Application
+    3. Look for errors from source "AppsielPrintManager"
+
+    Common issues:
+    - Port 7000 already in use by another application
+    - Insufficient permissions (run as Administrator)
+    - Missing .NET 10 runtime
+  </Accordion>
+
+  <Accordion title="WebSocket connection refused">
+    Verify the service is running:
+    ```powershell
+    sc.exe query "AppsielPrintManager"
+    netstat -ano | findstr :7000
+    ```
+
+    If port 7000 is not listening, check service logs in `%APPDATA%\\AppsielPrintManager\\logs\\`.
+  </Accordion>
+
+  <Accordion title="Templates not loading">
+    Ensure default templates are created:
+    1. Stop the service
+    2. Delete `%APPDATA%\\AppsielPrintManager\\templates\\`
+    3. Start the service (templates will be recreated)
+
+    The service calls `EnsureDefaultTemplatesAsync()` at startup (see `/home/daytona/workspace/source/WorkerService/Worker.cs:81`).
+  </Accordion>
+
+  <Accordion title="Print jobs fail silently">
+    Check these common issues:
+    - Printer ID in `PrintJobRequest` doesn't match configured printer
+    - Printer IP address is incorrect or printer is offline
+    - Template for the specified `DocumentType` doesn't exist
+    - Network firewall blocking TCP port 9100 (default printer port)
+
+    Enable debug logging in the MAUI app's Settings page for detailed error messages.
+  </Accordion>
+</AccordionGroup>
+
+## Next steps
+
+<CardGroup cols={2}>
+  <Card title="Quick start" icon="rocket" href="/quickstart">
+    Send your first print job and verify the installation
+  </Card>
+  <Card title="Printer configuration" icon="print" href="/essentials/printers">
+    Configure thermal and dot matrix printers
+  </Card>
+</CardGroup>

@@ -1,0 +1,559 @@
+---
+title: Template Sections
+description: Guide to Static, Table, and Repeated section types in APM templates
+---
+
+## Section Types Overview
+
+APM templates support three section types, each designed for different layout patterns:
+
+- **Static**: Sequential elements for headers, footers, and totals
+- **Table**: Columnar layout for line items and tabular data
+- **Repeated**: Simple lists for repeating text or values
+
+## Section Properties
+
+All sections share these common properties:
+
+| Property | Type | Required | Description |
+| :--- | :--- | :--- | :--- |
+| `Name` | `string` | Yes | Unique section identifier |
+| `Type` | `string` | Yes | Section type: `"Static"`, `"Table"`, or `"Repeated"` |
+| `DataSource` | `string` | Conditional | Data collection path (required for Table and Repeated) |
+| `Order` | `int` | No | Print order (ascending, default based on array position) |
+| `Align` | `string` | No | Default alignment for all elements: `"Left"`, `"Center"`, `"Right"` |
+| `Format` | `string` | No | Default text format for all elements |
+| `Elements` | `array` | Yes | Array of template elements |
+
+### Inheritance
+
+- Section-level `Align` and `Format` are inherited by all elements
+- Elements can override section defaults with their own properties
+- If section properties are `null`, elements use template defaults
+
+## Static Sections
+
+Static sections render elements sequentially in the order they appear. No data iteration occurs.
+
+### Use Cases
+
+- Document headers with store/company info
+- Totals and summary information
+- Static footer text
+- Separator lines and spacers
+
+### Properties
+
+- **DataSource**: Not used (ignored if present)
+- Elements reference top-level data model properties
+
+### Example: Header Section
+
+```json
+{
+  "Name": "Header",
+  "Type": "Static",
+  "Order": 1,
+  "Align": "Center",
+  "Elements": [
+    {
+      "Type": "Text",
+      "StaticValue": "APPSIEL CLOUD POS",
+      "Format": "Bold Size2"
+    },
+    {
+      "Type": "Text",
+      "Source": "Store.Name",
+      "Format": "Bold"
+    },
+    {
+      "Type": "Text",
+      "Source": "Store.Address"
+    },
+    {
+      "Type": "Text",
+      "Source": "Store.Phone"
+    },
+    {
+      "Type": "Line"
+    }
+  ]
+}
+```
+
+### Example: Totals Section
+
+```json
+{
+  "Name": "Totals",
+  "Type": "Static",
+  "Order": 3,
+  "Elements": [
+    {
+      "Type": "Line"
+    },
+    {
+      "Type": "Text",
+      "Label": "Subtotal: ",
+      "Source": "Sale.Subtotal",
+      "Align": "Right"
+    },
+    {
+      "Type": "Text",
+      "Label": "Tax: ",
+      "Source": "Sale.Tax",
+      "Align": "Right"
+    },
+    {
+      "Type": "Text",
+      "Label": "TOTAL: ",
+      "Source": "Sale.Total",
+      "Format": "Bold Large",
+      "Align": "Right"
+    }
+  ]
+}
+```
+
+### Example: Barcode Section
+
+```json
+{
+  "Name": "Invoice Barcode",
+  "Type": "Static",
+  "Order": 5,
+  "Align": "Center",
+  "Elements": [
+    {
+      "Type": "Barcode",
+      "Source": "Sale.InvoiceNumber",
+      "Height": 50
+    }
+  ]
+}
+```
+
+## Table Sections
+
+Table sections render data collections in columnar format with optional headers.
+
+### Use Cases
+
+- Line items in sales receipts
+- Product lists with prices
+- Transaction details
+- Any tabular data with multiple columns
+
+### Properties
+
+- **DataSource**: Required - path to data collection (e.g., `"Sale.Items"`)
+- Elements define columns with `WidthPercentage`
+- Column widths should sum to 100%
+
+### Element Requirements
+
+Each element in a Table section must specify:
+
+- `WidthPercentage`: Column width as percentage of paper width
+- `Source`: Property name from each item in the collection
+- Optional `HeaderLabel`: Column header text
+- Optional `HeaderAlign`: Header alignment
+- Optional `HeaderFormat`: Header formatting
+
+### Example: Sales Items Table
+
+```json
+{
+  "Name": "Items",
+  "Type": "Table",
+  "Order": 2,
+  "DataSource": "Sale.Items",
+  "Elements": [
+    {
+      "Type": "Text",
+      "Source": "Quantity",
+      "WidthPercentage": 15,
+      "HeaderLabel": "Qty",
+      "HeaderAlign": "Left",
+      "HeaderFormat": "Bold"
+    },
+    {
+      "Type": "Text",
+      "Source": "ProductName",
+      "WidthPercentage": 50,
+      "HeaderLabel": "Product",
+      "HeaderFormat": "Bold"
+    },
+    {
+      "Type": "Text",
+      "Source": "Price",
+      "WidthPercentage": 15,
+      "Align": "Right",
+      "HeaderLabel": "Price",
+      "HeaderAlign": "Right",
+      "HeaderFormat": "Bold"
+    },
+    {
+      "Type": "Text",
+      "Source": "Total",
+      "WidthPercentage": 20,
+      "Align": "Right",
+      "HeaderLabel": "Total",
+      "HeaderAlign": "Right",
+      "HeaderFormat": "Bold"
+    }
+  ]
+}
+```
+
+### Example: Three-Column Layout
+
+```json
+{
+  "Name": "Product List",
+  "Type": "Table",
+  "DataSource": "Sale.Items",
+  "Elements": [
+    {
+      "Type": "Text",
+      "Source": "ProductName",
+      "WidthPercentage": 60,
+      "HeaderLabel": "Description"
+    },
+    {
+      "Type": "Text",
+      "Source": "Quantity",
+      "WidthPercentage": 20,
+      "Align": "Center",
+      "HeaderLabel": "Qty",
+      "HeaderAlign": "Center"
+    },
+    {
+      "Type": "Text",
+      "Source": "Total",
+      "WidthPercentage": 20,
+      "Align": "Right",
+      "HeaderLabel": "Amount",
+      "HeaderAlign": "Right"
+    }
+  ]
+}
+```
+
+### Table Rendering
+
+When a Table section is rendered:
+
+1. Headers are printed first (if `HeaderLabel` is specified)
+2. Each item in the `DataSource` collection is iterated
+3. For each item, columns are rendered side-by-side
+4. Text is truncated or wrapped based on `WidthPercentage` and printer width
+
+## Repeated Sections
+
+Repeated sections iterate over simple value collections (typically arrays of strings).
+
+### Use Cases
+
+- Footer messages or disclaimers
+- Multiple lines of promotional text
+- List of payment methods
+- Terms and conditions lines
+
+### Properties
+
+- **DataSource**: Required - path to simple value array (e.g., `"Footer"`)
+- Elements typically use `Source: "."` to reference current item
+
+### Special Source Value
+
+In Repeated sections, use `"."` as the `Source` to reference the current item value directly:
+
+```json
+"Source": "."
+```
+
+This tells the renderer to use the primitive value (string, number) from the array.
+
+### Example: Footer Messages
+
+```json
+{
+  "Name": "Footer Messages",
+  "Type": "Repeated",
+  "Order": 4,
+  "DataSource": "Footer",
+  "Align": "Center",
+  "Elements": [
+    {
+      "Type": "Text",
+      "Source": "."
+    }
+  ]
+}
+```
+
+**Data Model:**
+```json
+{
+  "Footer": [
+    "Thank you for your purchase!",
+    "Visit us at www.example.com",
+    "Follow us on social media"
+  ]
+}
+```
+
+**Output:**
+```
+     Thank you for your purchase!
+       Visit us at www.example.com
+       Follow us on social media
+```
+
+### Example: Multiple Elements per Item
+
+```json
+{
+  "Name": "Legal Text",
+  "Type": "Repeated",
+  "DataSource": "LegalLines",
+  "Elements": [
+    {
+      "Type": "Text",
+      "Source": ".",
+      "Format": "FontB",
+      "Align": "Left"
+    },
+    {
+      "Type": "Line"
+    }
+  ]
+}
+```
+
+This prints each legal line followed by a separator.
+
+### Example: Formatted List
+
+```json
+{
+  "Name": "Promotions",
+  "Type": "Repeated",
+  "DataSource": "Promotions",
+  "Align": "Center",
+  "Format": "Bold",
+  "Elements": [
+    {
+      "Type": "Line"
+    },
+    {
+      "Type": "Text",
+      "StaticValue": "*** SPECIAL OFFER ***",
+      "Format": "Bold Large"
+    },
+    {
+      "Type": "Text",
+      "Source": "."
+    }
+  ]
+}
+```
+
+## Section Ordering
+
+The `Order` property controls the sequence in which sections print:
+
+```json
+[
+  { "Name": "Header", "Order": 1 },
+  { "Name": "Items", "Order": 2 },
+  { "Name": "Totals", "Order": 3 },
+  { "Name": "Footer", "Order": 4 },
+  { "Name": "QR Code", "Order": 5 }
+]
+```
+
+### Best Practices
+
+- Use increments of 10 (10, 20, 30) to allow inserting sections later
+- Lower numbers print first
+- If `Order` is omitted, sections print in array order
+
+## Section-Level Formatting
+
+Apply common formatting at the section level to reduce repetition:
+
+```json
+{
+  "Name": "Header",
+  "Type": "Static",
+  "Align": "Center",
+  "Format": "Bold",
+  "Elements": [
+    { "Type": "Text", "StaticValue": "STORE NAME" },
+    { "Type": "Text", "Source": "Store.Address" },
+    { "Type": "Text", "Source": "Store.Phone", "Format": "" }
+  ]
+}
+```
+
+In this example:
+- All elements inherit `Align: "Center"` and `Format: "Bold"`
+- The phone number overrides with empty format to remove bold
+
+## Complete Multi-Section Example
+
+```json
+{
+  "DocumentType": "ticket_venta",
+  "Name": "Complete Sales Receipt",
+  "Sections": [
+    {
+      "Name": "Header",
+      "Type": "Static",
+      "Order": 1,
+      "Align": "Center",
+      "Elements": [
+        { "Type": "Text", "StaticValue": "APPSIEL CLOUD POS", "Format": "Bold Size2" },
+        { "Type": "Text", "Source": "Store.Address" },
+        { "Type": "Line" }
+      ]
+    },
+    {
+      "Name": "Transaction Info",
+      "Type": "Static",
+      "Order": 2,
+      "Elements": [
+        { "Type": "Text", "Label": "Date: ", "Source": "Sale.Date" },
+        { "Type": "Text", "Label": "Invoice: ", "Source": "Sale.Number" },
+        { "Type": "Line" }
+      ]
+    },
+    {
+      "Name": "Items",
+      "Type": "Table",
+      "Order": 3,
+      "DataSource": "Sale.Items",
+      "Elements": [
+        { 
+          "Type": "Text",
+          "Source": "Quantity", 
+          "WidthPercentage": 15,
+          "HeaderLabel": "Qty"
+        },
+        { 
+          "Type": "Text",
+          "Source": "ProductName", 
+          "WidthPercentage": 55,
+          "HeaderLabel": "Product"
+        },
+        { 
+          "Type": "Text",
+          "Source": "Total", 
+          "WidthPercentage": 30,
+          "Align": "Right",
+          "HeaderLabel": "Total",
+          "HeaderAlign": "Right"
+        }
+      ]
+    },
+    {
+      "Name": "Totals",
+      "Type": "Static",
+      "Order": 4,
+      "Elements": [
+        { "Type": "Line" },
+        { "Type": "Text", "Label": "TOTAL: ", "Source": "Sale.Total", "Format": "Bold Large", "Align": "Right" }
+      ]
+    },
+    {
+      "Name": "Footer",
+      "Type": "Repeated",
+      "Order": 5,
+      "DataSource": "Footer",
+      "Align": "Center",
+      "Elements": [
+        { "Type": "Text", "Source": "." }
+      ]
+    },
+    {
+      "Name": "QR",
+      "Type": "Static",
+      "Order": 6,
+      "Align": "Center",
+      "Elements": [
+        { "Type": "QR", "Source": "Sale.InvoiceUrl", "Size": 4 }
+      ]
+    }
+  ]
+}
+```
+
+## Common Patterns
+
+### Pattern: Header + Items + Totals
+
+```json
+[
+  { "Name": "Header", "Type": "Static", "Order": 1 },
+  { "Name": "Items", "Type": "Table", "Order": 2, "DataSource": "Sale.Items" },
+  { "Name": "Totals", "Type": "Static", "Order": 3 }
+]
+```
+
+### Pattern: Repeating Groups with Separator
+
+```json
+{
+  "Name": "Messages",
+  "Type": "Repeated",
+  "DataSource": "Messages",
+  "Elements": [
+    { "Type": "Line" },
+    { "Type": "Text", "Source": "." }
+  ]
+}
+```
+
+### Pattern: Centered Static Content
+
+```json
+{
+  "Name": "Footer",
+  "Type": "Static",
+  "Align": "Center",
+  "Elements": [
+    { "Type": "Text", "StaticValue": "Thank you!" },
+    { "Type": "QR", "Source": "FeedbackUrl", "Size": 3 }
+  ]
+}
+```
+
+## Troubleshooting
+
+### Table columns don't align
+- Verify `WidthPercentage` values sum to 100%
+- Check for very long text that may overflow columns
+- Test with actual printer to confirm character limits
+
+### Repeated section not printing
+- Verify `DataSource` path exists in data model
+- Ensure data is an array
+- Check that `Source: "."` is used for simple values
+
+### Section appears in wrong order
+- Check `Order` property values
+- Ensure all sections have explicit `Order` values
+- Remember lower numbers print first
+
+## See Also
+
+<CardGroup cols={2}>
+  <Card title="Template Structure" icon="sitemap" href="/templates/structure">
+    Complete JSON structure reference
+  </Card>
+  <Card title="Element Types" icon="puzzle-piece" href="/templates/elements">
+    Text, Barcode, QR, Image, and Line elements
+  </Card>
+</CardGroup>

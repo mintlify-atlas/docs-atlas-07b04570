@@ -1,0 +1,346 @@
+---
+title: Template Structure
+description: Complete JSON structure and properties for APM print templates
+---
+
+## Template Root Object
+
+The root object defines the complete template configuration.
+
+### Properties
+
+| Property | Type | Required | Description |
+| :--- | :--- | :--- | :--- |
+| `DocumentType` | `string` | Yes | Document type identifier (e.g., `ticket_venta`, `invoice`) |
+| `Name` | `string` | Yes | Descriptive template name |
+| `Sections` | `array` | Yes | Array of template sections |
+| `GlobalStyles` | `object` | No | Global styling configuration (optional) |
+| `TemplateId` | `string` | No | Unique template identifier (auto-generated) |
+
+### Example
+
+```json
+{
+  "DocumentType": "ticket_venta",
+  "Name": "Standard Sales Ticket",
+  "Sections": [
+    // ... sections array
+  ],
+  "GlobalStyles": {
+    // ... optional global styles
+  }
+}
+```
+
+## Section Object
+
+Sections are logical blocks that group elements and define rendering behavior.
+
+### Properties
+
+| Property | Type | Required | Description |
+| :--- | :--- | :--- | :--- |
+| `Name` | `string` | Yes | Section identifier (e.g., "Header", "Items", "Footer") |
+| `Type` | `string` | Yes | Section type: `"Static"`, `"Table"`, or `"Repeated"` |
+| `DataSource` | `string` | Conditional | Path to data collection (required for `Table` and `Repeated` types) |
+| `Order` | `int` | No | Print order (lower values print first) |
+| `Align` | `string` | No | Default alignment: `"Left"`, `"Center"`, `"Right"`, or `null` |
+| `Format` | `string` | No | Default format for all elements in section, or `null` |
+| `Elements` | `array` | Yes | Array of template elements |
+
+### Section Types
+
+#### Static
+Sequential elements printed in order. No data binding at section level.
+
+```json
+{
+  "Name": "Header",
+  "Type": "Static",
+  "Order": 1,
+  "Align": "Center",
+  "Elements": [
+    { "Type": "Text", "StaticValue": "MY STORE", "Format": "Bold Size2" },
+    { "Type": "Text", "Source": "Store.Address" },
+    { "Type": "Line" }
+  ]
+}
+```
+
+#### Table
+Columnar layout with headers. Iterates over data collection.
+
+```json
+{
+  "Name": "Items",
+  "Type": "Table",
+  "Order": 2,
+  "DataSource": "Sale.Items",
+  "Elements": [
+    { 
+      "Type": "Text",
+      "Label": "Qty", 
+      "Source": "Quantity", 
+      "WidthPercentage": 20,
+      "HeaderLabel": "Cant",
+      "HeaderAlign": "Left"
+    },
+    { 
+      "Type": "Text",
+      "Label": "Product", 
+      "Source": "ProductName", 
+      "WidthPercentage": 50 
+    },
+    { 
+      "Type": "Text",
+      "Label": "Total", 
+      "Source": "Total", 
+      "WidthPercentage": 30,
+      "Align": "Right",
+      "HeaderAlign": "Right"
+    }
+  ]
+}
+```
+
+#### Repeated
+Iterates over simple value collections (e.g., string arrays).
+
+```json
+{
+  "Name": "Footer Messages",
+  "Type": "Repeated",
+  "Order": 3,
+  "DataSource": "Footer",
+  "Align": "Center",
+  "Elements": [
+    { "Type": "Text", "Source": "." }
+  ]
+}
+```
+
+## Element Object
+
+Elements are individual components within sections.
+
+### Common Properties
+
+| Property | Type | Required | Description |
+| :--- | :--- | :--- | :--- |
+| `Type` | `string` | Yes | Element type: `"Text"`, `"Line"`, `"Barcode"`, `"QR"`, `"Image"` |
+| `Label` | `string` | No | Static text prefix before the value |
+| `Source` | `string` | Conditional | Path to data property (e.g., `"Sale.Total"`). Use `"."` for current item in Repeated sections |
+| `StaticValue` | `string` | Conditional | Fixed value when `Source` is not used |
+| `Align` | `string` | No | Element alignment (overrides section alignment) |
+| `Format` | `string` | No | Text formatting (overrides section format) |
+| `Order` | `int` | No | Element order within section |
+
+### Table-Specific Properties
+
+| Property | Type | Required | Description |
+| :--- | :--- | :--- | :--- |
+| `WidthPercentage` | `int` | Yes | Column width as percentage of paper width |
+| `HeaderLabel` | `string` | No | Column header text |
+| `HeaderAlign` | `string` | No | Header alignment |
+| `HeaderFormat` | `string` | No | Header text formatting |
+
+### Element-Specific Properties
+
+| Property | Type | Applies To | Description |
+| :--- | :--- | :--- | :--- |
+| `Height` | `int` | Barcode, Image | Height in points (1-255) |
+| `BarWidth` | `int` | Barcode | Module width (1-5) |
+| `Size` | `int` | QR | QR module size (1-16, recommended: 3-4) |
+| `Columns` | `int` | Multiple types | Number of elements per row |
+| `Properties` | `object` | All | Additional custom properties |
+
+## Format String
+
+The `Format` property accepts space-separated values that can be combined.
+
+### Font Types
+
+- `FontA`: Standard font (48 characters per line on 80mm paper)
+- `FontB`: Condensed font (64 characters per line on 80mm paper)
+
+### Text Styles
+
+- `Bold`: Bold text
+- `Underline`: Underlined text
+
+### Sizes
+
+- `Large`: Double height text
+- `DoubleWidth`: Double width text
+- `Size2`, `Size3`, `Size4`, `Size5`, `Size6`, `Size7`, `Size8`: Proportional scaling (1-8x)
+
+### Format Examples
+
+```json
+"Format": "Bold Large"           // Bold and double height
+"Format": "FontB"                 // Condensed font
+"Format": "Bold Size2 Center"    // Bold, 2x size, centered
+"Format": "Underline FontA"      // Underlined standard font
+```
+
+## Alignment Values
+
+- `"Left"`: Left-aligned text
+- `"Center"`: Center-aligned text
+- `"Right"`: Right-aligned text
+- `null`: Inherit from parent section or default
+
+## Data Source Paths
+
+Data sources use dot notation to navigate object hierarchies:
+
+```json
+"Source": "Sale.Total"              // Property of Sale object
+"Source": "Store.Address"           // Property of Store object
+"Source": "Sale.Customer.Name"      // Nested property
+"DataSource": "Sale.Items"          // Collection for Table/Repeated
+"Source": "."                       // Current item in Repeated section
+```
+
+## Complete Example
+
+```json
+{
+  "DocumentType": "ticket_venta",
+  "Name": "Standard Template",
+  "Sections": [
+    {
+      "Name": "Header",
+      "Type": "Static",
+      "Order": 1,
+      "Align": "Center",
+      "Elements": [
+        { 
+          "Type": "Text", 
+          "StaticValue": "APPSIEL CLOUD POS", 
+          "Format": "Bold Size2" 
+        },
+        { 
+          "Type": "Text", 
+          "Source": "Store.Address" 
+        },
+        { 
+          "Type": "Line" 
+        }
+      ]
+    },
+    {
+      "Name": "Items",
+      "Type": "Table",
+      "Order": 2,
+      "DataSource": "Sale.Items",
+      "Elements": [
+        { 
+          "Type": "Text",
+          "Label": "Cant", 
+          "Source": "Quantity", 
+          "WidthPercentage": 20,
+          "HeaderLabel": "Qty",
+          "HeaderFormat": "Bold"
+        },
+        { 
+          "Type": "Text",
+          "Label": "Producto", 
+          "Source": "ProductName", 
+          "WidthPercentage": 50,
+          "HeaderLabel": "Product"
+        },
+        { 
+          "Type": "Text",
+          "Label": "Total", 
+          "Source": "Total", 
+          "WidthPercentage": 30, 
+          "Align": "Right",
+          "HeaderLabel": "Price",
+          "HeaderAlign": "Right"
+        }
+      ]
+    },
+    {
+      "Name": "Totals",
+      "Type": "Static",
+      "Order": 3,
+      "Elements": [
+        { 
+          "Type": "Line" 
+        },
+        { 
+          "Type": "Text", 
+          "Label": "TOTAL: ", 
+          "Source": "Sale.Total", 
+          "Format": "Bold Large",
+          "Align": "Right"
+        }
+      ]
+    },
+    {
+      "Name": "Footer",
+      "Type": "Repeated",
+      "Order": 4,
+      "DataSource": "Footer",
+      "Align": "Center",
+      "Elements": [
+        { 
+          "Type": "Text", 
+          "Source": "." 
+        }
+      ]
+    },
+    {
+      "Name": "QR Code",
+      "Type": "Static",
+      "Order": 5,
+      "Align": "Center",
+      "Elements": [
+        { 
+          "Type": "QR", 
+          "Source": "Sale.InvoiceUrl", 
+          "Size": 4 
+        }
+      ]
+    }
+  ]
+}
+```
+
+## Best Practices
+
+### Organization
+
+- Use descriptive `Name` values for sections and maintain consistent naming
+- Set `Order` values with gaps (10, 20, 30) to allow inserting sections later
+- Group related elements in the same section
+
+### Data Binding
+
+- Always validate that `DataSource` paths exist in your data model
+- Use `StaticValue` for labels and fixed text
+- Use `Source` for dynamic data
+
+### Formatting
+
+- Apply common formats at section level to reduce repetition
+- Override at element level only when needed
+- Test formatting on actual printer hardware as rendering may vary
+
+### Column Widths
+
+- Ensure `WidthPercentage` values in Table sections sum to 100%
+- Account for printer margins and character limits
+- Test with maximum expected content length
+
+## See Also
+
+<CardGroup cols={2}>
+  <Card title="Section Types" icon="layer-group" href="/templates/sections">
+    Detailed guide for Static, Table, and Repeated sections
+  </Card>
+  <Card title="Element Types" icon="puzzle-piece" href="/templates/elements">
+    Complete reference for all element types
+  </Card>
+</CardGroup>

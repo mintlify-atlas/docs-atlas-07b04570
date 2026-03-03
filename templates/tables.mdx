@@ -1,0 +1,296 @@
+---
+title: Tables
+description: Configure table layouts and column formatting in APM templates
+---
+
+Tables in APM templates allow you to display collections of data in a structured column format, perfect for line items, product lists, and other tabular data.
+
+## Table Section Type
+
+To create a table, set the section `Type` to `"Table"` and specify a `DataSource` pointing to a collection in your data:
+
+```json
+{
+  "Name": "Items",
+  "Type": "Table",
+  "DataSource": "Sale.Items",
+  "Elements": [
+    // Column definitions
+  ]
+}
+```
+
+## DataSource
+
+The `DataSource` property specifies the path to the collection of data to display:
+
+<ParamField path="DataSource" type="string" required>
+  Path to the data collection (e.g., `"Sale.Items"`, `"Products"`, `"OrderLines"`)
+</ParamField>
+
+```json
+{
+  "Name": "Products Table",
+  "Type": "Table",
+  "DataSource": "Sale.Items"
+}
+```
+
+## Column Configuration
+
+Each element in a table section represents a column. Columns use the `WidthPercentage` property to define their width.
+
+### Column Properties
+
+<ParamField path="WidthPercentage" type="int" required>
+  Percentage of paper width allocated to this column. Total should sum to 100.
+</ParamField>
+
+<ParamField path="Source" type="string">
+  Path to the data field within each item (e.g., `"ProductName"`, `"Quantity"`, `"Total"`)
+</ParamField>
+
+<ParamField path="Label" type="string">
+  Display label for the column (used in table body)
+</ParamField>
+
+<ParamField path="HeaderLabel" type="string">
+  Text for the column header. If not specified, `Label` is used.
+</ParamField>
+
+<ParamField path="Align" type="string">
+  Column content alignment: `"Left"`, `"Center"`, or `"Right"`
+</ParamField>
+
+<ParamField path="Format" type="string">
+  Text formatting for column content (e.g., `"Bold"`, `"FontB"`)
+</ParamField>
+
+<ParamField path="HeaderAlign" type="string">
+  Alignment for the column header
+</ParamField>
+
+<ParamField path="HeaderFormat" type="string">
+  Text formatting for the column header
+</ParamField>
+
+## Basic Table Example
+
+```json
+{
+  "Name": "Items",
+  "Type": "Table",
+  "DataSource": "Sale.Items",
+  "Elements": [
+    {
+      "Label": "Cant",
+      "Source": "Quantity",
+      "WidthPercentage": 20
+    },
+    {
+      "Label": "Producto",
+      "Source": "ProductName",
+      "WidthPercentage": 50
+    },
+    {
+      "Label": "Total",
+      "Source": "Total",
+      "WidthPercentage": 30,
+      "Align": "Right"
+    }
+  ]
+}
+```
+
+## Column Alignment
+
+Align column content based on data type:
+
+```json
+{
+  "Name": "Product List",
+  "Type": "Table",
+  "DataSource": "Sale.Items",
+  "Elements": [
+    {
+      "Label": "Qty",
+      "Source": "Quantity",
+      "WidthPercentage": 15,
+      "Align": "Center"
+    },
+    {
+      "Label": "Product",
+      "Source": "ProductName",
+      "WidthPercentage": 50,
+      "Align": "Left"
+    },
+    {
+      "Label": "Price",
+      "Source": "Price",
+      "WidthPercentage": 15,
+      "Align": "Right"
+    },
+    {
+      "Label": "Total",
+      "Source": "Total",
+      "WidthPercentage": 20,
+      "Align": "Right"
+    }
+  ]
+}
+```
+
+## Header Customization
+
+Customize table headers with different labels, alignment, and formatting:
+
+```json
+{
+  "Name": "Items",
+  "Type": "Table",
+  "DataSource": "Sale.Items",
+  "Elements": [
+    {
+      "Source": "Quantity",
+      "HeaderLabel": "QTY",
+      "HeaderAlign": "Center",
+      "HeaderFormat": "Bold",
+      "WidthPercentage": 20,
+      "Align": "Center"
+    },
+    {
+      "Source": "ProductName",
+      "HeaderLabel": "DESCRIPTION",
+      "HeaderAlign": "Left",
+      "HeaderFormat": "Bold Underline",
+      "WidthPercentage": 50
+    },
+    {
+      "Source": "Total",
+      "HeaderLabel": "AMOUNT",
+      "HeaderAlign": "Right",
+      "HeaderFormat": "Bold",
+      "WidthPercentage": 30,
+      "Align": "Right",
+      "Format": "FontB"
+    }
+  ]
+}
+```
+
+## Column Formatting
+
+Apply text formatting to individual columns:
+
+```json
+{
+  "Name": "Items",
+  "Type": "Table",
+  "DataSource": "Sale.Items",
+  "Elements": [
+    {
+      "Source": "Quantity",
+      "HeaderLabel": "Qty",
+      "WidthPercentage": 15,
+      "Format": "Bold"
+    },
+    {
+      "Source": "ProductName",
+      "HeaderLabel": "Product",
+      "WidthPercentage": 55,
+      "Format": "FontB"
+    },
+    {
+      "Source": "Total",
+      "HeaderLabel": "Total",
+      "WidthPercentage": 30,
+      "Align": "Right",
+      "Format": "Bold"
+    }
+  ]
+}
+```
+
+## Width Distribution
+
+Ensure column widths sum to 100%:
+
+```json
+// Good: Sums to 100%
+{
+  "Elements": [
+    { "WidthPercentage": 25 },  // 25%
+    { "WidthPercentage": 45 },  // 45%
+    { "WidthPercentage": 30 }   // 30% = 100% total
+  ]
+}
+
+// Also valid
+{
+  "Elements": [
+    { "WidthPercentage": 10 },  // 10%
+    { "WidthPercentage": 60 },  // 60%
+    { "WidthPercentage": 15 },  // 15%
+    { "WidthPercentage": 15 }   // 15% = 100% total
+  ]
+}
+```
+
+## Complete Table Section
+
+A full example with all features:
+
+```json
+{
+  "Name": "Sale Items",
+  "Type": "Table",
+  "DataSource": "Sale.Items",
+  "Order": 2,
+  "Elements": [
+    {
+      "Source": "Quantity",
+      "HeaderLabel": "QTY",
+      "HeaderAlign": "Center",
+      "HeaderFormat": "Bold",
+      "WidthPercentage": 15,
+      "Align": "Center",
+      "Format": "Bold"
+    },
+    {
+      "Source": "ProductName",
+      "HeaderLabel": "PRODUCT",
+      "HeaderAlign": "Left",
+      "HeaderFormat": "Bold Underline",
+      "WidthPercentage": 40,
+      "Align": "Left"
+    },
+    {
+      "Source": "Price",
+      "HeaderLabel": "PRICE",
+      "HeaderAlign": "Right",
+      "HeaderFormat": "Bold",
+      "WidthPercentage": 20,
+      "Align": "Right"
+    },
+    {
+      "Source": "Total",
+      "HeaderLabel": "TOTAL",
+      "HeaderAlign": "Right",
+      "HeaderFormat": "Bold Underline",
+      "WidthPercentage": 25,
+      "Align": "Right",
+      "Format": "Bold"
+    }
+  ]
+}
+```
+
+## Tips
+
+- Use `"Right"` alignment for numeric columns (prices, quantities, totals)
+- Use `"Left"` alignment for text columns (product names, descriptions)
+- Use `"Center"` alignment for short identifiers or codes
+- Keep product/description columns wider (40-60%) for readability
+- Make numeric columns narrower (15-25%) to maximize space
+- Apply `Bold` formatting to important columns like totals
+- Use `FontB` for compact tables with many columns

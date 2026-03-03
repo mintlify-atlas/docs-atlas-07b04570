@@ -1,80 +1,264 @@
 ---
-title: "Quickstart"
-description: "Start building awesome documentation in minutes"
+title: Quickstart
+description: Get started with APM by sending your first print job in minutes
 ---
 
-## Get started in three steps
+This guide will help you send your first print job through APM using the WebSocket API.
 
-Get your documentation site running locally and make your first customization.
+## Prerequisites
 
-### Step 1: Set up your local environment
+Before you begin, make sure you have:
 
-<AccordionGroup>
-  <Accordion icon="copy" title="Clone your docs locally">
-    During the onboarding process, you created a GitHub repository with your docs content if you didn't already have one. You can find a link to this repository in your [dashboard](https://dashboard.mintlify.com).
+- APM Windows Service installed and running (see [Installation](/installation))
+- A thermal printer configured in APM
+- Basic knowledge of JavaScript and WebSocket connections
+
+## Step 1: Start the APM service
+
+<Steps>
+  <Step title="Verify the service is running">
+    Check that the APM Windows Service is running. You can verify this through the Windows Services panel or the system tray icon.
     
-    To clone the repository locally so that you can make and preview changes to your docs, follow the [Cloning a repository](https://docs.github.com/en/repositories/creating-and-managing-repositories/cloning-a-repository) guide in the GitHub docs.
-  </Accordion>
-  <Accordion icon="rectangle-terminal" title="Start the preview server">
-    1. Install the Mintlify CLI: `npm i -g mint`
-    2. Navigate to your docs directory and run: `mint dev`
-    3. Open `http://localhost:3000` to see your docs live!
+    The WebSocket server should be listening on port **7000**.
+  </Step>
+
+  <Step title="Check connectivity">
+    Open your browser and navigate to:
     
-    <Tip>Your preview updates automatically as you edit files.</Tip>
-  </Accordion>
-</AccordionGroup>
-
-### Step 2: Deploy your changes
-
-<AccordionGroup>
-  <Accordion icon="github" title="Install our GitHub app">
-    Install the Mintlify GitHub app from your [dashboard](https://dashboard.mintlify.com/settings/organization/github-app).
+    ```
+    http://localhost:7000/
+    ```
     
-    Our GitHub app automatically deploys your changes to your docs site, so you don't need to manage deployments yourself.
-</Accordion>
-<Accordion icon="palette" title="Update your site name and colors">
-    For a first change, let's update the name and colors of your docs site.
+    You should see a status response indicating the server is running.
+  </Step>
+</Steps>
 
-    1. Open `docs.json` in your editor.
-    2. Change the `"name"` field to your project name.
-    3. Update the `"colors"` to match your brand.
-    4. Save and see your changes instantly at `http://localhost:3000`.
+## Step 2: Configure a printer
 
-    <Tip>Try changing the primary color to see an immediate difference!</Tip>
-  </Accordion>
-</AccordionGroup>
+<Steps>
+  <Step title="Open the MAUI application">
+    Launch the APM configuration application from the Start Menu or desktop shortcut.
+  </Step>
 
-### Step 3: Go live
+  <Step title="Add a printer">
+    Navigate to the **Printers** section and click **Add Printer**. Configure your thermal printer with these settings:
+    
+    - **Printer ID**: `main-printer`
+    - **Connection Type**: TCP/IP (or USB/IPP based on your setup)
+    - **IP Address**: Your printer's IP address (e.g., `192.168.1.100`)
+    - **Port**: `9100` (default for most thermal printers)
+    - **Paper Width**: `80` mm (or `58` mm for smaller printers)
+    
+    Click **Save** to apply the configuration.
+  </Step>
+</Steps>
 
-<Accordion icon="rocket" title="Publish your docs">
-  1. Commit and push your changes.
-  2. Your docs will update and be live in moments!
-</Accordion>
+## Step 3: Send your first print job
+
+Create an HTML file with the following code to send a print job via WebSocket:
+
+```html
+<!DOCTYPE html>
+<html>
+<head>
+    <title>APM Quickstart</title>
+</head>
+<body>
+    <h1>APM Print Test</h1>
+    <button onclick="sendPrintJob()">Send Print Job</button>
+    <div id="status"></div>
+
+    <script>
+        let ws;
+        
+        // Connect to APM WebSocket server
+        function connect() {
+            ws = new WebSocket('ws://localhost:7000/websocket/');
+            
+            ws.onopen = () => {
+                document.getElementById('status').innerHTML = 
+                    '<p style="color: green;">Connected to APM!</p>';
+            };
+            
+            ws.onmessage = (event) => {
+                const message = JSON.parse(event.data);
+                console.log('Received:', message);
+                
+                if (message.Type === 'PRINT_JOB_RESULT') {
+                    if (message.Success) {
+                        document.getElementById('status').innerHTML += 
+                            '<p style="color: green;">Print job successful!</p>';
+                    } else {
+                        document.getElementById('status').innerHTML += 
+                            '<p style="color: red;">Print failed: ' + message.Message + '</p>';
+                    }
+                }
+            };
+            
+            ws.onerror = (error) => {
+                document.getElementById('status').innerHTML = 
+                    '<p style="color: red;">Connection error!</p>';
+            };
+        }
+        
+        function sendPrintJob() {
+            const printJob = {
+                Type: "PRINT_JOB_REQUEST",
+                JobId: "test-" + Date.now(),
+                StationId: "web-station",
+                PrinterId: "main-printer",
+                DocumentType: "ticket_venta",
+                Document: {
+                    Store: {
+                        Name: "My Store",
+                        Address: "123 Main Street",
+                        Phone: "555-1234"
+                    },
+                    Sale: {
+                        Number: "SALE-001",
+                        Date: new Date().toISOString(),
+                        Items: [
+                            {
+                                ProductName: "Product A",
+                                Quantity: 2,
+                                Price: 10.00,
+                                Total: 20.00
+                            },
+                            {
+                                ProductName: "Product B",
+                                Quantity: 1,
+                                Price: 15.50,
+                                Total: 15.50
+                            }
+                        ],
+                        Subtotal: 35.50,
+                        Tax: 3.55,
+                        Total: 39.05
+                    },
+                    Footer: [
+                        "Thank you for your purchase!",
+                        "Visit us again soon"
+                    ]
+                }
+            };
+            
+            ws.send(JSON.stringify(printJob));
+            document.getElementById('status').innerHTML += 
+                '<p>Sending print job...</p>';
+        }
+        
+        // Connect on page load
+        connect();
+    </script>
+</body>
+</html>
+```
+
+<Steps>
+  <Step title="Save and open the HTML file">
+    Save the code above as `test-print.html` and open it in your web browser.
+  </Step>
+
+  <Step title="Click the button">
+    Click the **Send Print Job** button. You should see:
+    
+    1. Connection status showing "Connected to APM!"
+    2. "Sending print job..." message
+    3. "Print job successful!" confirmation
+    4. Your thermal printer should print a sales receipt
+  </Step>
+</Steps>
+
+## Understanding the print job structure
+
+The `PrintJobRequest` object contains:
+
+<ParamField path="Type" type="string" required>
+  Must be `"PRINT_JOB_REQUEST"` for print jobs
+</ParamField>
+
+<ParamField path="JobId" type="string" required>
+  Unique identifier for tracking the print job
+</ParamField>
+
+<ParamField path="StationId" type="string" required>
+  Identifier for the workstation sending the request
+</ParamField>
+
+<ParamField path="PrinterId" type="string" required>
+  Must match a printer ID configured in APM (e.g., `"main-printer"`)
+</ParamField>
+
+<ParamField path="DocumentType" type="string" required>
+  Type of document to print. Common types:
+  - `ticket_venta` - Sales receipt
+  - `comanda` - Kitchen order
+  - `factura_electronica` - Electronic invoice
+  - `sticker` - Barcode label
+</ParamField>
+
+<ParamField path="Document" type="object" required>
+  The actual data to print. Structure varies by DocumentType. Must include fields referenced in your print template.
+</ParamField>
 
 ## Next steps
 
-Now that you have your docs running, explore these key features:
-
 <CardGroup cols={2}>
-
-<Card title="Write Content" icon="pen-to-square" href="/essentials/markdown">
-  Learn MDX syntax and start writing your documentation.
-</Card>
-
-<Card title="Customize style" icon="palette" href="/essentials/settings">
-  Make your docs match your brand perfectly.
-</Card>
-
-<Card title="Add code examples" icon="square-code" href="/essentials/code">
-  Include syntax-highlighted code blocks.
-</Card>
-
-<Card title="API documentation" icon="code" href="/api-reference/introduction">
-  Auto-generate API docs from OpenAPI specs.
-</Card>
-
+  <Card title="Configure more printers" icon="print" href="/guides/printer-configuration">
+    Set up multiple printers with different connection types
+  </Card>
+  
+  <Card title="Customize templates" icon="paintbrush" href="/guides/template-editor">
+    Design custom receipt layouts with the template editor
+  </Card>
+  
+  <Card title="Integrate scales" icon="scale-balanced" href="/guides/scale-configuration">
+    Add scale data capture for weighing products
+  </Card>
+  
+  <Card title="Explore the API" icon="code" href="/api/websocket-overview">
+    Learn about all available WebSocket API features
+  </Card>
 </CardGroup>
 
-<Note>
-  **Need help?** See our [full documentation](https://mintlify.com/docs) or join our [community](https://mintlify.com/community).
-</Note>
+## Troubleshooting
+
+<AccordionGroup>
+  <Accordion title="Connection refused error">
+    **Cause**: The APM Windows Service is not running or is listening on a different port.
+    
+    **Solution**:
+    - Check if the service is running in Windows Services
+    - Verify the WebSocket port is 7000 in the service configuration
+    - Check Windows Firewall settings
+  </Accordion>
+
+  <Accordion title="Printer not found error">
+    **Cause**: The `PrinterId` doesn't match any configured printer.
+    
+    **Solution**:
+    - Open the APM MAUI application
+    - Go to Printers section
+    - Verify your printer ID matches exactly (case-sensitive)
+    - Make sure the printer is enabled
+  </Accordion>
+
+  <Accordion title="Template not found error">
+    **Cause**: No template exists for the specified `DocumentType`.
+    
+    **Solution**:
+    - APM includes default templates for common document types
+    - Check the Templates section in the MAUI app
+    - Create a custom template if needed for your document type
+  </Accordion>
+
+  <Accordion title="Print job succeeds but nothing prints">
+    **Cause**: Printer connectivity issue.
+    
+    **Solution**:
+    - Verify printer IP address and port
+    - Test printer connectivity with a ping command
+    - Check if printer is online and has paper
+    - Review logs in the APM MAUI application
+  </Accordion>
+</AccordionGroup>

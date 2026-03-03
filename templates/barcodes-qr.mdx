@@ -1,0 +1,223 @@
+---
+title: Barcodes & QR Codes
+description: Configure barcodes and QR codes in APM templates
+---
+
+APM templates support printing barcodes and QR codes on thermal printers. These multimedia elements are configured using the `Type` property and additional `Properties` for customization.
+
+## Barcode Elements
+
+Barcodes are created using the `"Barcode"` element type.
+
+### Basic Configuration
+
+```json
+{
+  "Type": "Barcode",
+  "Source": "Sale.BarcodeNumber",
+  "Align": "Center"
+}
+```
+
+### Barcode Properties
+
+Barcodes support additional configuration through element properties:
+
+<ParamField path="Height" type="int">
+  Height of the barcode in points (dots). Controls the vertical size of the barcode bars.
+</ParamField>
+
+<ParamField path="Hri" type="boolean">
+  HRI (Human Readable Interpretation) - When enabled, displays the barcode text/number below the barcode image.
+</ParamField>
+
+### Example with Properties
+
+```json
+{
+  "Type": "Barcode",
+  "Source": "Product.Sku",
+  "Align": "Center",
+  "Properties": {
+    "Height": "80",
+    "Hri": "true"
+  }
+}
+```
+
+### Static Barcode
+
+Use `StaticValue` for fixed barcodes:
+
+```json
+{
+  "Type": "Barcode",
+  "StaticValue": "1234567890",
+  "Align": "Center",
+  "Properties": {
+    "Height": "60",
+    "Hri": "true"
+  }
+}
+```
+
+## QR Code Elements
+
+QR codes are created using the `"QR"` element type.
+
+### Basic Configuration
+
+```json
+{
+  "Type": "QR",
+  "Source": "Sale.InvoiceUrl",
+  "Align": "Center"
+}
+```
+
+### QR Code Properties
+
+<ParamField path="Size" type="string">
+  Module size for the QR code, ranging from 1 to 16.
+  
+  - Recommended value: `"3"` or `"4"` for standard receipts
+  - Larger values create bigger QR codes
+  - Smaller values create more compact codes
+</ParamField>
+
+### Example with Size
+
+```json
+{
+  "Type": "QR",
+  "Source": "Sale.InvoiceUrl",
+  "Align": "Center",
+  "Properties": {
+    "Size": "4"
+  }
+}
+```
+
+### Static QR Code
+
+Use `StaticValue` for fixed QR code content:
+
+```json
+{
+  "Type": "QR",
+  "StaticValue": "https://example.com/invoice/12345",
+  "Align": "Center",
+  "Properties": {
+    "Size": "3"
+  }
+}
+```
+
+## Alignment
+
+Both barcodes and QR codes support alignment:
+
+```json
+// Left aligned
+{
+  "Type": "QR",
+  "Source": "Sale.Url",
+  "Align": "Left"
+}
+
+// Center aligned (recommended)
+{
+  "Type": "Barcode",
+  "Source": "Product.Code",
+  "Align": "Center"
+}
+
+// Right aligned
+{
+  "Type": "QR",
+  "Source": "Invoice.Link",
+  "Align": "Right"
+}
+```
+
+## Complete Example Section
+
+```json
+{
+  "Name": "Product Codes",
+  "Type": "Static",
+  "Align": "Center",
+  "Elements": [
+    {
+      "Type": "Text",
+      "StaticValue": "Product Barcode",
+      "Format": "Bold"
+    },
+    {
+      "Type": "Barcode",
+      "Source": "Product.Sku",
+      "Properties": {
+        "Height": "80",
+        "Hri": "true"
+      }
+    },
+    {
+      "Type": "Line"
+    },
+    {
+      "Type": "Text",
+      "StaticValue": "Invoice QR Code",
+      "Format": "Bold"
+    },
+    {
+      "Type": "QR",
+      "Source": "Sale.InvoiceUrl",
+      "Properties": {
+        "Size": "4"
+      }
+    }
+  ]
+}
+```
+
+## Use Cases
+
+### Invoice URL QR Code
+
+```json
+{
+  "Type": "QR",
+  "Source": "Sale.InvoiceUrl",
+  "Align": "Center",
+  "Properties": {
+    "Size": "4"
+  }
+}
+```
+
+### Product SKU Barcode
+
+```json
+{
+  "Type": "Barcode",
+  "Source": "Product.Sku",
+  "Align": "Center",
+  "Properties": {
+    "Height": "60",
+    "Hri": "true"
+  }
+}
+```
+
+### Contact Information QR
+
+```json
+{
+  "Type": "QR",
+  "Source": "Store.ContactCard",
+  "Align": "Center",
+  "Properties": {
+    "Size": "3"
+  }
+}
+```

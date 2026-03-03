@@ -1,0 +1,81 @@
+---
+title: "PrinterSettings"
+description: "Representa la configuración guardada para una impresora POS térmica."
+---
+
+## Properties
+
+<ParamField path="PrinterId" type="string" required>
+  Identificador único de la impresora, usado por Appsiel para mapear trabajos.
+</ParamField>
+
+<ParamField path="PrinterType" type="string" default="Térmica">
+  Tipo de impresora (Térmica, Matricial).
+</ParamField>
+
+<ParamField path="IpAddress" type="string">
+  Dirección IP fija de la impresora en la red local.
+</ParamField>
+
+<ParamField path="Port" type="integer" required>
+  Puerto TCP/IP de la impresora (normalmente 9100).
+</ParamField>
+
+<ParamField path="PaperWidthMm" type="integer" required>
+  Ancho del papel de la impresora en milímetros (ej. 58mm o 80mm).
+</ParamField>
+
+<ParamField path="BeepOnPrint" type="boolean" required>
+  Indica si la impresora debe emitir un sonido (beep) al imprimir.
+</ParamField>
+
+<ParamField path="OpenCashDrawerAfterPrint" type="boolean" required>
+  Indica si la impresora debe abrir el cajón monedero después de imprimir.
+</ParamField>
+
+<ParamField path="OpenCashDrawerWithoutPrint" type="boolean" required>
+  Indica si la impresora debe abrir el cajón monedero sin imprimir.
+</ParamField>
+
+<ParamField path="ConnectionType" type="string" default="TCP">
+  Indica el tipo de conexión de la impresora (TCP, Bluetooth, USB, IPP).
+</ParamField>
+
+<ParamField path="LocalPrinterName" type="string">
+  Nombre de la impresora en el sistema operativo (necesario para USB/Local).
+</ParamField>
+
+<ParamField path="Uri" type="string">
+  URI de conexión universal (ej: tcp://192.168.1.100:9100 o usb://PrinterName).
+</ParamField>
+
+<ParamField path="CopyToPrinterIds" type="array">
+  Lista de identificadores de impresoras adicionales a las que se debe copiar el trabajo de impresión.
+  Cada elemento en la lista es un 'PrinterId' de otra impresora configurada.
+  
+  <Expandable title="string[]">
+    Array of printer IDs (strings) where the print job should be copied.
+  </Expandable>
+</ParamField>
+
+## JSON Example
+
+```json
+{
+  "PrinterId": "PRINTER_THERMAL_01",
+  "PrinterType": "Térmica",
+  "IpAddress": "192.168.1.100",
+  "Port": 9100,
+  "PaperWidthMm": 80,
+  "BeepOnPrint": true,
+  "OpenCashDrawerAfterPrint": true,
+  "OpenCashDrawerWithoutPrint": false,
+  "ConnectionType": "TCP",
+  "LocalPrinterName": null,
+  "Uri": "tcp://192.168.1.100:9100",
+  "CopyToPrinterIds": [
+    "PRINTER_BACKUP_01",
+    "PRINTER_KITCHEN_01"
+  ]
+}
+```

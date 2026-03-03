@@ -1,0 +1,162 @@
+---
+title: Text Formatting
+description: Text formatting options for APM template elements
+---
+
+APM templates support a variety of text formatting options that can be applied to elements using the `Format` property. Multiple format values can be combined by separating them with spaces.
+
+## Format Property
+
+The `Format` property can be applied at both the section level (as a default for all elements) and at individual element levels. Element-level formats override section defaults.
+
+```json
+{
+  "Type": "Text",
+  "StaticValue": "TOTAL",
+  "Format": "Bold Large Center"
+}
+```
+
+## Font Types
+
+APM supports two font types optimized for thermal printers:
+
+<ParamField path="FontA" type="string">
+  Standard font - displays 48 characters per line on 80mm paper
+</ParamField>
+
+<ParamField path="FontB" type="string">
+  Compressed font - displays 64 characters per line on 80mm paper (smaller and more compact)
+</ParamField>
+
+### Example
+
+```json
+{
+  "Type": "Text",
+  "StaticValue": "Compact text",
+  "Format": "FontB"
+}
+```
+
+## Text Styles
+
+Style options modify the appearance of text:
+
+<ParamField path="Bold" type="string">
+  Makes text bold/heavy weight
+</ParamField>
+
+<ParamField path="Underline" type="string">
+  Adds underline decoration to text
+</ParamField>
+
+### Example
+
+```json
+{
+  "Type": "Text",
+  "Source": "Sale.Total",
+  "Format": "Bold Underline"
+}
+```
+
+## Size Options
+
+Control the size of text using these format options:
+
+<ParamField path="Large" type="string">
+  Double height text (2x vertical scale)
+</ParamField>
+
+<ParamField path="DoubleWidth" type="string">
+  Double width text (2x horizontal scale)
+</ParamField>
+
+<ParamField path="SizeX" type="string">
+  Proportional scaling from 1 to 8. Use `Size2`, `Size3`, `Size4`, etc.
+  
+  Examples: `Size2` (2x scale), `Size3` (3x scale), `Size8` (8x scale)
+</ParamField>
+
+### Example
+
+```json
+// Double height
+{
+  "Type": "Text",
+  "StaticValue": "IMPORTANT",
+  "Format": "Large"
+}
+
+// Proportional scaling
+{
+  "Type": "Text",
+  "StaticValue": "HUGE TEXT",
+  "Format": "Size3 Bold"
+}
+
+// Combined width and height
+{
+  "Type": "Text",
+  "StaticValue": "BIG",
+  "Format": "Large DoubleWidth"
+}
+```
+
+## Combining Formats
+
+You can combine multiple format options by separating them with spaces:
+
+```json
+{
+  "Type": "Text",
+  "StaticValue": "RECEIPT HEADER",
+  "Format": "Bold Size2 FontA"
+}
+```
+
+```json
+{
+  "Type": "Text",
+  "Source": "Store.Name",
+  "Format": "Bold Large Underline"
+}
+```
+
+## Section-Level Formatting
+
+Apply default formatting to all elements in a section:
+
+```json
+{
+  "Name": "Header",
+  "Type": "Static",
+  "Format": "Bold Center",
+  "Elements": [
+    {
+      "Type": "Text",
+      "StaticValue": "MY STORE"
+      // Inherits "Bold Center" from section
+    },
+    {
+      "Type": "Text",
+      "Source": "Store.Address",
+      "Format": "FontB"
+      // Overrides with "FontB"
+    }
+  ]
+}
+```
+
+## Null Format
+
+Set `Format` to `null` to inherit formatting from the parent section or use default printer settings:
+
+```json
+{
+  "Type": "Text",
+  "Source": "Sale.Date",
+  "Format": null
+}
+```

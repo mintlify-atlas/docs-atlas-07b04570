@@ -1,0 +1,242 @@
+---
+title: 'Scale Data API'
+description: 'Receive real-time weight data from connected scales'
+---
+
+## Overview
+
+APM can broadcast real-time weight readings from connected scales to subscribed WebSocket clients. This is useful for point-of-sale systems that need to weigh products during checkout.
+
+## Start Listening
+
+Subscribe to scale data updates from a specific scale.
+
+### Message Format
+
+```json
+{
+  "Action": "StartListening",
+  "ScaleId": "scale_001"
+}
+```
+
+### Request Fields
+
+<ParamField path="Action" type="string" required>
+  Must be `StartListening` to subscribe to scale readings.
+</ParamField>
+
+<ParamField path="ScaleId" type="string" required>
+  Identifier of the scale to listen to. Must match a scale ID configured in APM.
+</ParamField>
+
+## Stop Listening
+
+Unsubscribe from scale data updates.
+
+### Message Format
+
+```json
+{
+  "Action": "StopListening"
+}
+```
+
+### Request Fields
+
+<ParamField path="Action" type="string" required>
+  Must be `StopListening` to unsubscribe from scale readings.
+</ParamField>
+
+<Note>
+The scale ID is automatically determined from your client's active subscription. Each client can only subscribe to one scale at a time.
+</Note>
+
+## Scale Reading Broadcast
+
+When subscribed, APM automatically sends weight readings as they change.
+
+### Message Format
+
+```json
+{
+  "Type": "SCALE_READING",
+  "StationId": "STATION_001",
+  "ScaleId": "scale_001",
+  "Weight": 2.450,
+  "Unit": "kg",
+  "Stable": true,
+  "Timestamp": "2024-01-15T10:30:45.123Z"
+}
+```
+
+### Broadcast Fields
+
+<ParamField path="Type" type="string">
+  Event type identifier. Always `SCALE_READING` for scale data.
+</ParamField>
+
+<ParamField path="StationId" type="string">
+  Identifier of the station where the scale is connected.
+</ParamField>
+
+<ParamField path="ScaleId" type="string">
+  Identifier of the scale that produced this reading.
+</ParamField>
+
+<ParamField path="Weight" type="decimal">
+  The measured weight value.
+</ParamField>
+
+<ParamField path="Unit" type="string">
+  Unit of measurement: `kg` (kilograms), `g` (grams), or `lb` (pounds).
+</ParamField>
+
+<ParamField path="Stable" type="boolean">
+  Indicates if the weight reading is stable. `true` means the weight has stabilized and is ready to be recorded.
+</ParamField>
+
+<ParamField path="Timestamp" type="string">
+  ISO 8601 timestamp of when the reading was taken.
+</ParamField>
+
+## Example: Complete Scale Flow
+
+```javascript
+const ws = new WebSocket('ws://localhost:7000/websocket/');
+let currentWeight = null;
+
+ws.onopen = () => {
+  // Start listening to scale
+  ws.send(JSON.stringify({
+    Action: 'StartListening',
+    ScaleId: 'scale_001'
+  }));
+};
+
+ws.onmessage = (event) => {
+  const data = JSON.parse(event.data);
+  
+  // Check if this is a scale reading
+  if (data.Type === 'SCALE_READING') {
+    currentWeight = data.Weight;
+    
+    // Update UI with weight
+    document.getElementById('weight').textContent = 
+      `${data.Weight.toFixed(3)} ${data.Unit}`;
+    
+    // Show stability indicator
+    document.getElementById('stable').textContent = 
+      data.Stable ? 'Stable' : 'Weighing...';
+    
+    // Auto-capture when stable
+    if (data.Stable && data.Weight > 0) {
+      captureWeight(data.Weight, data.Unit);
+    }
+  }
+};
+
+ws.onclose = () => {
+  // WebSocket automatically unsubscribes on disconnect
+  console.log('Disconnected from scale');
+};
+
+function captureWeight(weight, unit) {
+  console.log(`Captured: ${weight} ${unit}`);
+  // Add to order, etc.
+}
+
+function stopListening() {
+  ws.send(JSON.stringify({
+    Action: 'StopListening'
+  }));
+}
+```
+
+## Subscription Behavior
+
+- **Per-Client Subscriptions**: Each WebSocket client maintains its own scale subscription
+- **Single Scale Per Client**: A client can only subscribe to one scale at a time. Starting a new subscription automatically stops the previous one
+- **Automatic Cleanup**: When a client disconnects, APM automatically stops listening to the scale and cleans up the subscription
+- **Broadcast to Subscribers**: Scale readings are only sent to clients that have subscribed to that specific scale
+
+## Scale Configuration
+
+Scales must be configured in APM before they can be used. See the configuration documentation for details on:
+
+- Adding scale devices
+- Configuring serial ports
+- Setting up scale protocols
+- Calibration and units
+
+## Common Use Cases
+
+### Fresh Produce Weighing
+
+```javascript
+// Customer places item on scale
+ws.send(JSON.stringify({ Action: 'StartListening', ScaleId: 'scale_produce' }));
+
+// Wait for stable reading
+ws.onmessage = (event) => {
+  const data = JSON.parse(event.data);
+  if (data.Type === 'SCALE_READING' && data.Stable) {
+    // Calculate price
+    const pricePerKg = 3.99;
+    const totalPrice = data.Weight * pricePerKg;
+    
+    // Add to cart
+    addToCart({
+      item: 'Tomatoes',
+      weight: data.Weight,
+      unit: data.Unit,
+      price: totalPrice
+    });
+    
+    // Stop listening
+    ws.send(JSON.stringify({ Action: 'StopListening' }));
+  }
+};
+```
+
+### Continuous Monitoring
+
+```javascript
+// Monitor scale continuously for shipping department
+ws.send(JSON.stringify({ Action: 'StartListening', ScaleId: 'scale_shipping' }));
+
+ws.onmessage = (event) => {
+  const data = JSON.parse(event.data);
+  if (data.Type === 'SCALE_READING') {
+    // Update live display
+    updateShippingDisplay(data.Weight, data.Unit, data.Stable);
+    
+    // Check weight limits
+    if (data.Stable && data.Weight > MAX_PACKAGE_WEIGHT) {
+      alert('Package exceeds maximum weight!');
+    }
+  }
+};
+```
+
+## Troubleshooting
+
+### No Scale Readings
+
+1. Verify the scale is configured in APM
+2. Check the scale ID matches your configuration
+3. Ensure the scale is connected and powered on
+4. Check the status endpoint: `http://localhost:7000/websocket/status`
+
+### Unstable Readings
+
+- Wait for `Stable: true` before capturing weight
+- Ensure the scale is on a level surface
+- Remove vibrations or air currents near the scale
+- Check scale calibration
+
+## Source Reference
+
+- Scale data model: `source/Core/Models/ScaleData.cs:9`
+- WebSocket handler: `source/Infraestructure/Services/WebSocketServerService.cs:444`
+- Scale service integration: `source/Infraestructure/Services/WebSocketServerService.cs:80`

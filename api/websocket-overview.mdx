@@ -1,0 +1,112 @@
+---
+title: 'WebSocket API Overview'
+description: 'Connect to APM via WebSocket for real-time print job management and scale data'
+---
+
+## Connection
+
+APM runs a WebSocket server on your local machine that accepts connections from web applications.
+
+### Endpoint
+
+```
+ws://localhost:7000/websocket/
+```
+
+### Connection Example
+
+```javascript
+const ws = new WebSocket('ws://localhost:7000/websocket/');
+
+ws.onopen = () => {
+  console.log('Connected to APM');
+};
+
+ws.onmessage = (event) => {
+  const data = JSON.parse(event.data);
+  console.log('Received:', data);
+};
+
+ws.onerror = (error) => {
+  console.error('WebSocket error:', error);
+};
+
+ws.onclose = () => {
+  console.log('Disconnected from APM');
+};
+```
+
+## Message Types
+
+APM WebSocket API supports different message types identified by the message structure:
+
+### Client to Server Messages
+
+| Message Type | Description | Reference |
+|-------------|-------------|--------|
+| Print Job Request | Send a print job to a thermal printer | [Print Jobs](/api/print-jobs) |
+| Template Update | Update or create a print template | [Template Updates](/api/template-updates) |
+| Scale Control | Start/stop listening to scale data | [Scale Data](/api/scale-data) |
+
+### Server to Client Messages
+
+| Message Type | Description | Reference |
+|-------------|-------------|--------|
+| Print Job Result | Result of a print job operation | [Print Jobs](/api/print-jobs) |
+| Scale Reading | Real-time weight data from scale | [Scale Data](/api/scale-data) |
+| Template Update Result | Result of template update operation | [Template Updates](/api/template-updates) |
+
+## Status Endpoint
+
+Check if APM is running and get connected client information:
+
+```bash
+curl http://localhost:7000/websocket/status
+```
+
+### Response
+
+```json
+{
+  "IsRunning": true,
+  "ConnectedClients": 2,
+  "ScaleStatuses": [
+    {
+      "ScaleId": "scale_001",
+      "IsConnected": true,
+      "LastReading": "2024-01-15T10:30:00Z"
+    }
+  ]
+}
+```
+
+## Error Handling
+
+All responses include status information. For errors:
+
+```json
+{
+  "JobId": "job_12345",
+  "Status": "ERROR",
+  "ErrorMessage": "Printer not found: PRINTER_001"
+}
+```
+
+Common error scenarios:
+
+- **Printer not found**: The specified printer ID doesn't exist in the configuration
+- **Template not found**: The document type doesn't have a corresponding template
+- **Connection failed**: Unable to connect to the printer hardware
+- **Invalid JSON**: Malformed message sent to the server
+
+## Client Identification
+
+Each WebSocket connection is automatically assigned a client ID based on the remote endpoint (IP:Port). The server uses this ID to:
+
+- Send responses to the specific client that made the request
+- Track scale data subscriptions per client
+- Manage connection lifecycle
+
+<Note>
+Print job results and template update results are sent only to the requesting client (unicast), while scale data can be broadcast to all subscribed clients.
+</Note>

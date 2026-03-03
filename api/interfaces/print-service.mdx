@@ -1,0 +1,238 @@
+---
+title: 'IPrintService'
+description: 'Interface for the print service that orchestrates the complete printing process from request reception to printer output'
+---
+
+## Overview
+
+The `IPrintService` interface defines the core printing service contract for the Appsiel Print Manager. It orchestrates the complete printing workflow including parsing, rendering, ESC/POS command generation, and sending data to printers.
+
+**Namespace:** `AppsielPrintManager.Core.Interfaces`
+
+## Methods
+
+### ProcessPrintJobAsync
+
+Processes a print job request, including parsing, rendering, generating ESC/POS commands, and sending to the printer(s).
+
+```csharp
+Task<PrintJobResult> ProcessPrintJobAsync(PrintJobRequest request)
+```
+
+<ParamField path="request" type="PrintJobRequest" required>
+  The print job request object containing all details of the printing task
+</ParamField>
+
+<ResponseField name="return" type="Task<PrintJobResult>">
+  A PrintJobResult indicating the success or failure of the operation
+</ResponseField>
+
+**Example:**
+
+```csharp
+var request = new PrintJobRequest
+{
+    DocumentType = "invoice",
+    PrinterId = "thermal-printer-01",
+    Data = new Dictionary<string, object>
+    {
+        { "invoiceNumber", "INV-001" },
+        { "total", 150.00m },
+        { "items", itemsList }
+    }
+};
+
+var result = await printService.ProcessPrintJobAsync(request);
+
+if (result.Success)
+{
+    Console.WriteLine($"Print job completed: {result.JobId}");
+}
+else
+{
+    Console.WriteLine($"Print job failed: {result.ErrorMessage}");
+}
+```
+
+---
+
+### ConfigurePrinterAsync
+
+Configures a specific printer by saving or updating its settings.
+
+```csharp
+Task ConfigurePrinterAsync(PrinterSettings settings)
+```
+
+<ParamField path="settings" type="PrinterSettings" required>
+  The printer configuration to save or update
+</ParamField>
+
+<ResponseField name="return" type="Task">
+  A task representing the asynchronous operation
+</ResponseField>
+
+**Example:**
+
+```csharp
+var printerSettings = new PrinterSettings
+{
+    PrinterId = "thermal-printer-01",
+    PrinterName = "Thermal Printer",
+    Port = "COM3",
+    BaudRate = 9600,
+    CharactersPerLine = 48,
+    PrinterType = PrinterType.Thermal
+};
+
+await printService.ConfigurePrinterAsync(printerSettings);
+Console.WriteLine("Printer configured successfully");
+```
+
+---
+
+### GetPrinterSettingsAsync
+
+Retrieves the configuration of a printer by its identifier.
+
+```csharp
+Task<PrinterSettings> GetPrinterSettingsAsync(string printerId)
+```
+
+<ParamField path="printerId" type="string" required>
+  The unique identifier of the printer
+</ParamField>
+
+<ResponseField name="return" type="Task<PrinterSettings>">
+  The printer configuration if found, otherwise null
+</ResponseField>
+
+**Example:**
+
+```csharp
+var settings = await printService.GetPrinterSettingsAsync("thermal-printer-01");
+
+if (settings != null)
+{
+    Console.WriteLine($"Printer: {settings.PrinterName}");
+    Console.WriteLine($"Port: {settings.Port}");
+    Console.WriteLine($"Characters per line: {settings.CharactersPerLine}");
+}
+else
+{
+    Console.WriteLine("Printer not found");
+}
+```
+
+---
+
+### GetAllPrinterSettingsAsync
+
+Retrieves all saved printer configurations.
+
+```csharp
+Task<List<PrinterSettings>> GetAllPrinterSettingsAsync()
+```
+
+<ResponseField name="return" type="Task<List<PrinterSettings>>">
+  A list of all printer configurations
+</ResponseField>
+
+**Example:**
+
+```csharp
+var allPrinters = await printService.GetAllPrinterSettingsAsync();
+
+Console.WriteLine($"Total printers configured: {allPrinters.Count}");
+
+foreach (var printer in allPrinters)
+{
+    Console.WriteLine($"- {printer.PrinterId}: {printer.PrinterName} ({printer.PrinterType})");
+}
+```
+
+---
+
+### DeletePrinterSettingsAsync
+
+Deletes a printer configuration by its identifier.
+
+```csharp
+Task DeletePrinterSettingsAsync(string printerId)
+```
+
+<ParamField path="printerId" type="string" required>
+  The unique identifier of the printer to delete
+</ParamField>
+
+<ResponseField name="return" type="Task">
+  A task representing the asynchronous operation
+</ResponseField>
+
+**Example:**
+
+```csharp
+await printService.DeletePrinterSettingsAsync("thermal-printer-01");
+Console.WriteLine("Printer configuration deleted successfully");
+```
+
+## Usage Example
+
+Complete example showing typical IPrintService usage:
+
+```csharp
+public class PrintController
+{
+    private readonly IPrintService _printService;
+
+    public PrintController(IPrintService printService)
+    {
+        _printService = printService;
+    }
+
+    public async Task SetupAndPrintAsync()
+    {
+        // 1. Configure a printer
+        var settings = new PrinterSettings
+        {
+            PrinterId = "receipt-printer",
+            PrinterName = "Receipt Printer",
+            Port = "COM3",
+            BaudRate = 9600,
+            CharactersPerLine = 48,
+            PrinterType = PrinterType.Thermal
+        };
+        await _printService.ConfigurePrinterAsync(settings);
+
+        // 2. Create and process a print job
+        var request = new PrintJobRequest
+        {
+            DocumentType = "receipt",
+            PrinterId = "receipt-printer",
+            Data = new Dictionary<string, object>
+            {
+                { "orderNumber", "ORD-12345" },
+                { "total", 85.50m }
+            }
+        };
+
+        var result = await _printService.ProcessPrintJobAsync(request);
+
+        if (result.Success)
+        {
+            Console.WriteLine("Receipt printed successfully");
+        }
+        else
+        {
+            Console.WriteLine($"Print failed: {result.ErrorMessage}");
+        }
+    }
+}
+```
+
+## See Also
+
+- [Print Job Request](/api/models/print-job-request)
+- [Printer Settings](/api/models/printer-settings)
+- [ITemplateRepository](/api/interfaces/template-repository)
+- [Print Jobs API](/api/print-jobs)

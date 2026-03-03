@@ -1,0 +1,428 @@
+---
+title: Template Examples
+description: Complete APM template examples and use cases
+---
+
+This page provides complete, working examples of APM templates that demonstrate various features and configurations.
+
+## Complete Sales Receipt Template
+
+This is the complete example template from the APM documentation, demonstrating all major features:
+
+```json
+{
+  "DocumentType": "ticket_venta",
+  "Name": "Plantilla Estándar",
+  "Sections": [
+    {
+      "Name": "Header",
+      "Type": "Static",
+      "Align": "Center",
+      "Elements": [
+        { "Type": "Text", "StaticValue": "APPSIEL CLOUD POS", "Format": "Bold Size2" },
+        { "Type": "Text", "Source": "Store.Address" },
+        { "Type": "Line" }
+      ]
+    },
+    {
+      "Name": "Items",
+      "Type": "Table",
+      "DataSource": "Sale.Items",
+      "Elements": [
+        { "Label": "Cant", "Source": "Quantity", "WidthPercentage": 20 },
+        { "Label": "Producto", "Source": "ProductName", "WidthPercentage": 50 },
+        { "Label": "Total", "Source": "Total", "WidthPercentage": 30, "Align": "Right" }
+      ]
+    },
+    {
+      "Name": "Footer",
+      "Type": "Repeated",
+      "DataSource": "Footer",
+      "Align": "Center",
+      "Elements": [
+        { "Type": "Line" },
+        { "Type": "Text", "Source": "." },
+        { "Type": "QR", "Source": "Sale.InvoiceUrl", "Properties": { "Size": "4" } }
+      ]
+    }
+  ]
+}
+```
+
+### What This Template Does
+
+1. **Header Section**: Displays store branding centered with formatted text
+   - Company name in bold, size 2
+   - Store address from data source
+   - Horizontal line separator
+
+2. **Items Section**: Table layout for sale items
+   - 3 columns: Quantity (20%), Product Name (50%), Total (30%)
+   - Right-aligned totals for better readability
+   - Automatically loops through all items in `Sale.Items`
+
+3. **Footer Section**: Repeated section for dynamic footer messages
+   - Line separator
+   - Multiple text lines from the `Footer` array
+   - QR code linking to invoice URL with size 4
+
+### Expected Data Structure
+
+```json
+{
+  "Store": {
+    "Address": "123 Main Street, City, Country"
+  },
+  "Sale": {
+    "Items": [
+      {
+        "Quantity": "2",
+        "ProductName": "Product A",
+        "Total": "$20.00"
+      },
+      {
+        "Quantity": "1",
+        "ProductName": "Product B",
+        "Total": "$15.00"
+      }
+    ],
+    "InvoiceUrl": "https://example.com/invoice/12345"
+  },
+  "Footer": [
+    "Thank you for your purchase!",
+    "Visit us at www.example.com",
+    "Customer Service: 555-1234"
+  ]
+}
+```
+
+## Detailed Invoice Template
+
+A more comprehensive invoice with customer information and payment details:
+
+```json
+{
+  "DocumentType": "invoice",
+  "Name": "Detailed Invoice",
+  "Sections": [
+    {
+      "Name": "Header",
+      "Type": "Static",
+      "Order": 1,
+      "Align": "Center",
+      "Elements": [
+        {
+          "Type": "Text",
+          "StaticValue": "TAX INVOICE",
+          "Format": "Bold Size3"
+        },
+        { "Type": "Line" },
+        {
+          "Type": "Text",
+          "Source": "Store.Name",
+          "Format": "Bold Large"
+        },
+        { "Type": "Text", "Source": "Store.Address" },
+        { "Type": "Text", "Source": "Store.Phone" },
+        { "Type": "Text", "Source": "Store.TaxId", "Label": "Tax ID: " },
+        { "Type": "Line" }
+      ]
+    },
+    {
+      "Name": "Invoice Info",
+      "Type": "Static",
+      "Order": 2,
+      "Elements": [
+        {
+          "Type": "Text",
+          "Source": "Invoice.Number",
+          "Label": "Invoice #: ",
+          "Format": "Bold"
+        },
+        {
+          "Type": "Text",
+          "Source": "Invoice.Date",
+          "Label": "Date: "
+        },
+        {
+          "Type": "Text",
+          "Source": "Customer.Name",
+          "Label": "Customer: ",
+          "Format": "Bold"
+        },
+        { "Type": "Line" }
+      ]
+    },
+    {
+      "Name": "Items",
+      "Type": "Table",
+      "Order": 3,
+      "DataSource": "Invoice.Items",
+      "Elements": [
+        {
+          "Source": "Quantity",
+          "HeaderLabel": "QTY",
+          "HeaderFormat": "Bold",
+          "WidthPercentage": 12,
+          "Align": "Center"
+        },
+        {
+          "Source": "Description",
+          "HeaderLabel": "ITEM",
+          "HeaderFormat": "Bold",
+          "WidthPercentage": 43
+        },
+        {
+          "Source": "Price",
+          "HeaderLabel": "PRICE",
+          "HeaderFormat": "Bold",
+          "WidthPercentage": 20,
+          "Align": "Right"
+        },
+        {
+          "Source": "Total",
+          "HeaderLabel": "TOTAL",
+          "HeaderFormat": "Bold",
+          "WidthPercentage": 25,
+          "Align": "Right",
+          "Format": "Bold"
+        }
+      ]
+    },
+    {
+      "Name": "Totals",
+      "Type": "Static",
+      "Order": 4,
+      "Elements": [
+        { "Type": "Line" },
+        {
+          "Type": "Text",
+          "Source": "Invoice.Subtotal",
+          "Label": "Subtotal: ",
+          "Align": "Right"
+        },
+        {
+          "Type": "Text",
+          "Source": "Invoice.Tax",
+          "Label": "Tax: ",
+          "Align": "Right"
+        },
+        {
+          "Type": "Text",
+          "Source": "Invoice.Total",
+          "Label": "TOTAL: ",
+          "Align": "Right",
+          "Format": "Bold Large"
+        },
+        { "Type": "Line" }
+      ]
+    },
+    {
+      "Name": "Footer",
+      "Type": "Static",
+      "Order": 5,
+      "Align": "Center",
+      "Elements": [
+        {
+          "Type": "Barcode",
+          "Source": "Invoice.Number",
+          "Properties": {
+            "Height": "80",
+            "Hri": "true"
+          }
+        },
+        {
+          "Type": "Text",
+          "StaticValue": "Thank you for your business!",
+          "Format": "Bold"
+        },
+        {
+          "Type": "QR",
+          "Source": "Invoice.Url",
+          "Properties": { "Size": "3" }
+        }
+      ]
+    }
+  ]
+}
+```
+
+## Simple Receipt with Barcode
+
+```json
+{
+  "DocumentType": "receipt",
+  "Name": "Simple Receipt",
+  "Sections": [
+    {
+      "Name": "Header",
+      "Type": "Static",
+      "Align": "Center",
+      "Format": "Bold",
+      "Elements": [
+        { "Type": "Text", "StaticValue": "RECEIPT", "Format": "Size2" },
+        { "Type": "Text", "Source": "Store.Name" },
+        { "Type": "Line" }
+      ]
+    },
+    {
+      "Name": "Items",
+      "Type": "Table",
+      "DataSource": "Items",
+      "Elements": [
+        { "Source": "Name", "WidthPercentage": 60 },
+        { "Source": "Price", "WidthPercentage": 40, "Align": "Right" }
+      ]
+    },
+    {
+      "Name": "Total",
+      "Type": "Static",
+      "Elements": [
+        { "Type": "Line" },
+        {
+          "Type": "Text",
+          "Source": "Total",
+          "Label": "TOTAL: ",
+          "Align": "Right",
+          "Format": "Bold Large"
+        }
+      ]
+    },
+    {
+      "Name": "Barcode",
+      "Type": "Static",
+      "Align": "Center",
+      "Elements": [
+        {
+          "Type": "Barcode",
+          "Source": "ReceiptNumber",
+          "Properties": {
+            "Height": "60",
+            "Hri": "true"
+          }
+        }
+      ]
+    }
+  ]
+}
+```
+
+## Product Label Template
+
+```json
+{
+  "DocumentType": "label",
+  "Name": "Product Label",
+  "Sections": [
+    {
+      "Name": "Product Info",
+      "Type": "Static",
+      "Align": "Center",
+      "Elements": [
+        {
+          "Type": "Text",
+          "Source": "Product.Name",
+          "Format": "Bold Large"
+        },
+        {
+          "Type": "Text",
+          "Source": "Product.Price",
+          "Format": "Size3 Bold"
+        },
+        {
+          "Type": "Barcode",
+          "Source": "Product.Sku",
+          "Properties": {
+            "Height": "80",
+            "Hri": "true"
+          }
+        },
+        {
+          "Type": "Text",
+          "Source": "Product.Description",
+          "Format": "FontB"
+        }
+      ]
+    }
+  ]
+}
+```
+
+## Kitchen Order Template
+
+```json
+{
+  "DocumentType": "kitchen_order",
+  "Name": "Kitchen Order",
+  "Sections": [
+    {
+      "Name": "Header",
+      "Type": "Static",
+      "Elements": [
+        {
+          "Type": "Text",
+          "StaticValue": "KITCHEN ORDER",
+          "Align": "Center",
+          "Format": "Bold Size2"
+        },
+        {
+          "Type": "Text",
+          "Source": "Order.Number",
+          "Label": "Order #: ",
+          "Format": "Bold Large"
+        },
+        {
+          "Type": "Text",
+          "Source": "Order.Time",
+          "Label": "Time: "
+        },
+        {
+          "Type": "Text",
+          "Source": "Order.Table",
+          "Label": "Table: ",
+          "Format": "Bold"
+        },
+        { "Type": "Line" }
+      ]
+    },
+    {
+      "Name": "Items",
+      "Type": "Repeated",
+      "DataSource": "Order.Items",
+      "Elements": [
+        {
+          "Type": "Text",
+          "Source": ".",
+          "Format": "Large"
+        }
+      ]
+    },
+    {
+      "Name": "Notes",
+      "Type": "Static",
+      "Elements": [
+        { "Type": "Line" },
+        {
+          "Type": "Text",
+          "Source": "Order.Notes",
+          "Label": "Notes: ",
+          "Format": "Bold"
+        }
+      ]
+    }
+  ]
+}
+```
+
+## Tips for Creating Templates
+
+1. **Use meaningful section names** - Makes templates easier to maintain
+2. **Set proper Order values** - Controls the physical print sequence
+3. **Align numeric values to the right** - Improves readability for prices and totals
+4. **Use Line elements** - Creates visual separation between sections
+5. **Apply Bold to important information** - Highlights totals, headers, and key data
+6. **Choose appropriate fonts** - FontA for readability, FontB for compact layouts
+7. **Size QR codes appropriately** - Use Size 3-4 for standard receipts
+8. **Enable Hri on barcodes** - Shows human-readable text below barcodes
+9. **Sum WidthPercentage to 100** - Ensures proper column distribution in tables
+10. **Test with real data** - Verify formatting with actual values before deployment

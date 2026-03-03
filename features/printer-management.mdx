@@ -1,0 +1,269 @@
+---
+title: Printer Management
+description: Network printer management with TCP/IP, USB, and IPP protocol support
+icon: print
+---
+
+## Overview
+
+APM provides comprehensive printer management for thermal and dot-matrix printers. The system supports multiple connection types, automatic configuration, and print job distribution to multiple printers.
+
+## Connection Protocols
+
+<CardGroup cols={3}>
+  <Card title="TCP/IP" icon="network-wired">
+    Network printers via raw TCP socket (default port 9100)
+  </Card>
+  <Card title="USB" icon="usb">
+    Local printers connected via USB using Windows printer names
+  </Card>
+  <Card title="IPP" icon="globe">
+    Internet Printing Protocol for modern network printers
+  </Card>
+</CardGroup>
+
+## Printer Configuration
+
+Each printer is identified by a unique `PrinterId` and configured with connection and behavior settings.
+
+### PrinterSettings Model
+
+```csharp Core/Models/PrinterSettings.cs
+public class PrinterSettings
+{
+    public string PrinterId { get; set; }              // Unique identifier
+    public string PrinterType { get; set; }            // "Térmica" or "Matricial"
+    public string ConnectionType { get; set; }         // "TCP", "USB", or "IPP"
+    
+    // TCP/IP Configuration
+    public string? IpAddress { get; set; }             // e.g., "192.168.1.100"
+    public int Port { get; set; }                      // Default: 9100
+    
+    // USB Configuration
+    public string? LocalPrinterName { get; set; }      // Windows printer name
+    
+    // IPP Configuration
+    public string? Uri { get; set; }                   // e.g., "http://printer:631/ipp"
+    
+    // Paper Settings
+    public int PaperWidthMm { get; set; }              // 58mm or 80mm
+    
+    // Behavior Settings
+    public bool BeepOnPrint { get; set; }
+    public bool OpenCashDrawerAfterPrint { get; set; }
+    public bool OpenCashDrawerWithoutPrint { get; set; }
+    
+    // Multi-Printer Support
+    public List<string> CopyToPrinterIds { get; set; } // Copy to additional printers
+}
+```
+
+## Service Interface
+
+The `IPrintService` interface defines the core printer management operations.
+
+### Configuration Operations
+
+```csharp Core/Interfaces/IPrintService.cs
+public interface IPrintService
+{
+    // Configure or update printer settings
+    Task ConfigurePrinterAsync(PrinterSettings settings);
+    
+    // Retrieve settings for a specific printer
+    Task<PrinterSettings> GetPrinterSettingsAsync(string printerId);
+    
+    // Get all configured printers
+    Task<List<PrinterSettings>> GetAllPrinterSettingsAsync();
+    
+    // Remove printer configuration
+    Task DeletePrinterSettingsAsync(string printerId);
+}
+```
+
+### Print Job Processing
+
+```csharp
+// Process complete print job (parse, render, generate ESC/POS, send)
+Task<PrintJobResult> ProcessPrintJobAsync(PrintJobRequest request);
+```
+
+<Info>
+The `ProcessPrintJobAsync` method orchestrates the entire print workflow: template rendering, ESC/POS command generation, and transmission to the printer(s).
+</Info>
+
+## Print Job Workflow
+
+The service implements a complete printing pipeline:
+
+<Steps>
+  <Step title="Validate Printer">
+    Retrieve printer configuration using `PrinterId` from the settings repository.
+  </Step>
+  <Step title="Deserialize Document">
+    Convert JSON document data to strongly-typed models based on `DocumentType`.
+  </Step>
+  <Step title="Select Renderer">
+    Choose thermal (ESC/POS) or dot-matrix (ESC/P) renderer based on template availability.
+  </Step>
+  <Step title="Generate Commands">
+    Convert rendered content to printer-specific command sequences.
+  </Step>
+  <Step title="Send to Primary Printer">
+    Transmit commands to main printer via configured connection type.
+  </Step>
+  <Step title="Send to Copy Printers">
+    If `CopyToPrinterIds` is configured, send to additional printers.
+  </Step>
+</Steps>
+
+## Connection Type Selection
+
+The service automatically selects the appropriate client based on configuration:
+
+```csharp Infraestructure/Services/PrintService.cs:138-151
+// C. Enviar según el tipo de conexión
+bool success = false;
+if (printerSettings.ConnectionType == "USB" && !string.IsNullOrEmpty(printerSettings.LocalPrinterName))
+{
+    success = await _localRawPrinterClient.SendRawDataAsync(
+        printerSettings.LocalPrinterName, 
+        escPCommands, 
+        $"APM_{request.JobId}"
+    );
+}
+else if (printerSettings.ConnectionType == "IPP" && !string.IsNullOrEmpty(printerSettings.Uri))
+{
+    success = await _ippPrinterClient.PrintAsync(printerSettings.Uri, escPCommands);
+}
+else
+{
+    // Fallback to TCP for thermal printers
+    success = await _tcpIpPrinterClient.PrintAsync(
+        printerSettings.IpAddress ?? string.Empty, 
+        printerSettings.Port, 
+        escPosCommands
+    );
+}
+```
+
+## Multi-Printer Copy Distribution
+
+APM supports automatic job distribution to multiple printers using the `CopyToPrinterIds` property:
+
+```csharp Infraestructure/Services/PrintService.cs:176-198
+if (printerSettings.CopyToPrinterIds != null && printerSettings.CopyToPrinterIds.Any())
+{
+    foreach (var copyPrinterId in printerSettings.CopyToPrinterIds)
+    {
+        var copyPrinterSettings = await _settingsRepository.GetPrinterSettingsAsync(copyPrinterId);
+        if (copyPrinterSettings == null)
+        {
+            _logger.LogWarning($"Impresora de copia con ID '{copyPrinterId}' no encontrada.");
+            continue;
+        }
+        
+        _logger.LogInfo($"Enviando copia a impresora '{copyPrinterId}'.");
+        var copyEscPosCommands = await _escPosGenerator.GenerateEscPosCommandsAsync(
+            ticketContent, 
+            copyPrinterSettings
+        );
+        
+        bool copyPrintSuccess = await _tcpIpPrinterClient.PrintAsync(
+            copyPrinterSettings.IpAddress ?? string.Empty, 
+            copyPrinterSettings.Port, 
+            copyEscPosCommands
+        );
+        
+        if (!copyPrintSuccess)
+        {
+            _logger.LogError($"Fallo al imprimir en impresora de copia '{copyPrinterId}'.");
+            // Process continues even if copy fails
+        }
+    }
+}
+```
+
+<Warning>
+Copy printer failures do not halt the main print job. The service logs errors but continues processing.
+</Warning>
+
+## Supported Document Types
+
+The print service supports multiple document types with specific data models:
+
+- `ticket_venta` - Sales receipts
+- `comanda` - Kitchen/bar order tickets  
+- `factura_electronica` - Electronic invoices
+- `sticker_codigo_barras` - Barcode labels
+- `comprobante_egreso` - Expense vouchers
+
+Each document type is deserialized to its corresponding strongly-typed model before rendering.
+
+## Configuration Example
+
+<CodeGroup>
+
+```json TCP/IP Thermal Printer
+{
+  "PrinterId": "thermal_kitchen",
+  "PrinterType": "Térmica",
+  "ConnectionType": "TCP",
+  "IpAddress": "192.168.1.100",
+  "Port": 9100,
+  "PaperWidthMm": 80,
+  "BeepOnPrint": true,
+  "OpenCashDrawerAfterPrint": false,
+  "CopyToPrinterIds": ["thermal_counter"]
+}
+```
+
+```json USB Dot-Matrix Printer
+{
+  "PrinterId": "matrix_invoice",
+  "PrinterType": "Matricial",
+  "ConnectionType": "USB",
+  "LocalPrinterName": "Epson LX-300",
+  "PaperWidthMm": 210,
+  "BeepOnPrint": false,
+  "CopyToPrinterIds": []
+}
+```
+
+```json IPP Network Printer
+{
+  "PrinterId": "receipt_main",
+  "PrinterType": "Térmica",
+  "ConnectionType": "IPP",
+  "Uri": "http://192.168.1.200:631/ipp/print",
+  "PaperWidthMm": 58,
+  "BeepOnPrint": true,
+  "OpenCashDrawerAfterPrint": true
+}
+```
+
+</CodeGroup>
+
+## Error Handling
+
+The service provides comprehensive error reporting through `PrintJobResult`:
+
+```csharp
+public class PrintJobResult
+{
+    public string JobId { get; set; }
+    public string Status { get; set; }       // "DONE" or "ERROR"
+    public string? ErrorMessage { get; set; } // Detailed error description
+}
+```
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Template System" icon="file-code" href="/features/template-system">
+    Learn how to create custom print templates
+  </Card>
+  <Card title="WebSocket Server" icon="plug" href="/features/websocket-server">
+    Integrate with web applications
+  </Card>
+</CardGroup>

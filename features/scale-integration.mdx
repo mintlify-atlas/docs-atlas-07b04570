@@ -1,0 +1,464 @@
+---
+title: Scale Integration
+description: Serial port scale data capture with auto-detection and real-time weight streaming
+icon: weight-scale
+---
+
+## Overview
+
+APM provides industrial-grade serial scale integration for capturing weight data from USB and RS-232 connected scales. The system features automatic port detection, robust error recovery, and real-time data streaming to web clients.
+
+## Architecture
+
+The scale service operates on a listener-based model:
+
+<Steps>
+  <Step title="Background Monitoring">
+    Continuous monitoring task checks for scale connections and auto-detects COM ports.
+  </Step>
+  <Step title="Serial Communication">
+    Event-driven data reception processes weight readings as they arrive from the hardware.
+  </Step>
+  <Step title="Data Broadcasting">
+    Weight changes are broadcast to subscribed WebSocket clients in real-time.
+  </Step>
+</Steps>
+
+## Scale Configuration
+
+### Scale Model
+
+```csharp Core/Models/Scale.cs
+public class Scale
+{
+    public string Id { get; set; }                    // Unique identifier
+    public string Name { get; set; }                  // Display name
+    public string PortName { get; set; }              // e.g., "COM3"
+    public int BaudRate { get; set; } = 9600;         // Serial speed
+    public int DataBits { get; set; } = 8;
+    public ScaleParity Parity { get; set; }           // None, Even, Odd
+    public ScaleStopBits StopBits { get; set; }       // One, Two
+    public bool IsActive { get; set; } = true;
+}
+```
+
+### ScaleData Model
+
+```csharp Core/Models/ScaleData.cs
+public class ScaleData
+{
+    public string Type { get; set; } = "SCALE_READING";
+    public string StationId { get; set; }             // Station identifier
+    public string ScaleId { get; set; }               // Scale that produced reading
+    public decimal Weight { get; set; }               // Measured weight
+    public string Unit { get; set; }                  // "kg", "g", "lb"
+    public bool Stable { get; set; }                  // Reading stability flag
+    public DateTime Timestamp { get; set; }           // Reading time
+}
+```
+
+## Service Interface
+
+```csharp Core/Interfaces/IScaleService.cs
+public interface IScaleService
+{
+    // Real-time weight change events
+    event EventHandler<ScaleDataEventArgs> OnWeightChanged;
+    
+    // Initialize scale monitoring
+    Task InitializeAsync();
+    
+    // Get connection status for a specific scale
+    ScaleStatus GetStatus(string scaleId);
+    
+    // Get status of all configured scales
+    List<ScaleStatusInfo> GetAllStatuses();
+    
+    // Enable data transmission to clients
+    void StartListening(string scaleId);
+    void StopListening(string scaleId);
+    
+    // Reload scale configurations from storage
+    Task ReloadScalesAsync();
+}
+```
+
+### Scale Status Enumeration
+
+```csharp
+public enum ScaleStatus
+{
+    Disconnected,  // No connection established
+    Connected,     // Active and reading data
+    Error          // Connection or communication error
+}
+```
+
+## Automatic Port Detection
+
+APM features intelligent auto-detection that handles dynamic COM port changes:
+
+```csharp Infraestructure/Services/SerialScaleService.cs:322-363
+// 1. Intentar puerto configurado (Solo si existe en SO)
+bool found = false;
+if (osPorts.Any(p => p.Equals(scale.PortName, StringComparison.OrdinalIgnoreCase)))
+{
+    if (TryOpenPort(scale, scale.PortName)) found = true;
+}
+
+// 2. Si falló, buscar en otros puertos libres
+if (!found)
+{
+    var usedPorts = _activePorts.Values.Where(p => p.IsOpen).Select(p => p.PortName).ToList();
+    var candidatePorts = osPorts.Except(usedPorts, StringComparer.OrdinalIgnoreCase);
+    
+    foreach (var candPort in candidatePorts)
+    {
+        if (TryOpenPort(scale, candPort))
+        {
+            _logger.LogInfo($"Auto-Detect: Báscula {scale.Id} encontrada en {candPort}");
+            
+            // PERSISTENCIA AUTOMÁTICA: Guardar el nuevo puerto en configuración
+            if (!string.Equals(scale.PortName, candPort, StringComparison.OrdinalIgnoreCase))
+            {
+                try
+                {
+                    scale.PortName = candPort;
+                    await _scaleRepository.UpdateAsync(scale);
+                    _logger.LogInfo($"Configuración actualizada: Báscula {scale.Id} movida a {candPort}");
+                    await RefreshCacheAsync();
+                }
+                catch (Exception saveEx)
+                {
+                    _logger.LogError($"Error guardando nuevo puerto {candPort}: {saveEx.Message}");
+                }
+            }
+            break;
+        }
+    }
+}
+```
+
+<Info>
+When a scale is plugged into a different USB port, APM automatically detects the new COM port and updates the configuration.
+</Info>
+
+## Serial Port Configuration
+
+The service configures serial ports with optimal settings for scale communication:
+
+```csharp Infraestructure/Services/SerialScaleService.cs:138-169
+private bool TryOpenPort(Scale scale, string? portNameOverride = null)
+{
+    string targetPortName = portNameOverride ?? scale.PortName;
+    
+    // Map Core enums to System.IO.Ports enums
+    Parity parity = (Parity)(int)scale.Parity;
+    StopBits stopBits = (StopBits)(int)scale.StopBits;
+    
+    var port = new SerialPort(targetPortName, scale.BaudRate, parity, scale.DataBits, stopBits);
+    port.Handshake = Handshake.None;
+    
+    // Subscribe to data events
+    port.DataReceived += (sender, e) => Port_DataReceived(sender, e, scale.Id);
+    
+    port.Open();
+    
+    // IMPORTANT: Set DTR/RTS *after* opening the port
+    port.DtrEnable = true;  // Data Terminal Ready
+    port.RtsEnable = true;  // Request To Send
+    port.ReadTimeout = 500;
+    port.WriteTimeout = 500;
+    
+    if (port.IsOpen)
+    {
+        _activePorts[scale.Id] = port;
+        _scaleStatuses[scale.Id] = ScaleStatus.Connected;
+        _logger.LogInfo($"Puerto {targetPortName} abierto correctamente para báscula {scale.Id}");
+        return true;
+    }
+}
+```
+
+<Warning>
+DTR and RTS signals must be enabled **after** opening the port to properly initialize scale communication.
+</Warning>
+
+## Event-Driven Data Reception
+
+The service uses Windows event handlers for real-time data processing:
+
+```csharp Infraestructure/Services/SerialScaleService.cs:189-292
+// This method is called by the OS automatically when bytes arrive at the serial port
+private void Port_DataReceived(object sender, SerialDataReceivedEventArgs e, string scaleId)
+{
+    try
+    {
+        SerialPort sp = (SerialPort)sender;
+        
+        // Safety check: verify port is still open
+        if (!sp.IsOpen) return;
+        
+        // Performance optimization: only process if someone is listening
+        if (!_listenersCount.TryGetValue(scaleId, out int count) || count <= 0)
+        {
+            // Clear buffer to prevent overflow
+            if (sp.IsOpen) sp.ReadExisting();
+            return;
+        }
+        
+        // Read one complete line from the scale (until \n)
+        string line = sp.ReadLine();
+        
+        if (string.IsNullOrWhiteSpace(line)) return;
+        
+        _logger.LogInfo($"Data recibida ({scaleId}): {line}");
+        
+        // Extract weight using regex: (\d+[\.,]?\d*)
+        // Matches patterns like: "15.00", "15,00", "15"
+        var match = Regex.Match(line, @"(\d+[\.,]?\d*)");
+        
+        if (match.Success)
+        {
+            // Normalize: replace comma with period for C# decimal parsing
+            string weightStr = match.Groups[1].Value.Replace(',', '.');
+            
+            if (decimal.TryParse(weightStr, 
+                System.Globalization.NumberStyles.Any, 
+                System.Globalization.CultureInfo.InvariantCulture, 
+                out decimal weight))
+            {
+                var data = new ScaleData
+                {
+                    ScaleId = scaleId,
+                    StationId = "Local",
+                    Weight = weight,
+                    Unit = "kg",
+                    Stable = true,
+                    Timestamp = DateTime.Now,
+                    Type = "SCALE_READING"
+                };
+                
+                // Broadcast weight change event
+                OnWeightChanged?.Invoke(this, new ScaleDataEventArgs(scaleId, data));
+            }
+        }
+    }
+    catch (IOException ex)
+    {
+        _logger.LogError($"Error procesando datos serial ({scaleId}): {ex.Message}");
+    }
+    catch (UnauthorizedAccessException ex)
+    {
+        _logger.LogError($"Puerto bloqueado ({scaleId}): {ex.Message}");
+    }
+    catch (TimeoutException ex)
+    {
+        _logger.LogError($"Timeout de lectura ({scaleId}): {ex.Message}");
+    }
+}
+```
+
+## Listener Management
+
+The service tracks active listeners to optimize CPU usage:
+
+```csharp Infraestructure/Services/SerialScaleService.cs:125-135
+public void StartListening(string scaleId)
+{
+    _listenersCount.AddOrUpdate(scaleId, 1, (key, count) => count + 1);
+    _logger.LogInfo($"Iniciando escucha para báscula {scaleId}. Listeners: {_listenersCount[scaleId]}");
+}
+
+public void StopListening(string scaleId)
+{
+    _listenersCount.AddOrUpdate(scaleId, 0, (key, count) => Math.Max(0, count - 1));
+    _logger.LogInfo($"Deteniendo escucha para báscula {scaleId}. Listeners: {_listenersCount[scaleId]}");
+}
+```
+
+<Info>
+When listener count reaches zero, the service discards incoming data without processing to save CPU resources.
+</Info>
+
+## Connection Health Monitoring
+
+Continuous background monitoring ensures connection reliability:
+
+```csharp Infraestructure/Services/SerialScaleService.cs:384-420
+// Health check for already connected ports
+if (port == null || !port.IsOpen)
+{
+    _logger.LogWarning($"Puerto {port?.PortName ?? "null"} detectado cerrado.");
+    _listenersCount.TryRemove(scale.Id, out _);
+    _activePorts.TryRemove(scale.Id, out _);
+    SafeClose(port);
+    _scaleStatuses[scale.Id] = ScaleStatus.Error;
+    _lastErrors[scale.Id] = "Puerto cerrado inesperadamente.";
+}
+else
+{
+    try
+    {
+        // Verify port still exists in Windows
+        bool portExists = osPorts.Any(p => p.Equals(port.PortName, StringComparison.OrdinalIgnoreCase));
+        
+        if (!portExists)
+        {
+            throw new IOException($"El puerto {port.PortName} ha desaparecido del sistema operativo.");
+        }
+        
+        // Verify driver is still alive
+        if (port.IsOpen)
+        {
+            var dummy = port.BytesToRead; // Throws exception if cable disconnected
+            _scaleStatuses[scale.Id] = ScaleStatus.Connected;
+        }
+    }
+    catch (Exception ex)
+    {
+        _logger.LogWarning($"Puerto {port.PortName} detectado muerto ({ex.Message}). Limpiando...");
+        _listenersCount.TryRemove(scale.Id, out _);
+        _activePorts.TryRemove(scale.Id, out _);
+        SafeClose(port);
+        _scaleStatuses[scale.Id] = ScaleStatus.Error;
+        _lastErrors[scale.Id] = "Dispositivo desconectado.";
+    }
+}
+```
+
+## Safe Port Cleanup
+
+Robust cleanup prevents driver hangs when USB devices are unplugged:
+
+```csharp Infraestructure/Services/SerialScaleService.cs:454-492
+private void SafeClose(SerialPort? port)
+{
+    if (port == null) return;
+    
+    // Run Close on separate thread to prevent service freeze if driver fails
+    Task.Run(() =>
+    {
+        try
+        {
+            if (port.IsOpen)
+            {
+                try
+                {
+                    port.DtrEnable = false;
+                    port.RtsEnable = false;
+                }
+                catch { }
+                
+                try
+                {
+                    port.DiscardInBuffer();
+                    port.DiscardOutBuffer();
+                }
+                catch { }
+                
+                port.Close();
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError($"{ex.Message}");
+            // Ignore errors when closing (dead port or hung driver)
+        }
+        finally
+        {
+            try { port.Dispose(); } catch { }
+        }
+    });
+}
+```
+
+<Warning>
+USB-Serial drivers (CH340, PL2303) can hang when closing ports after physical disconnection. Running cleanup on a background thread prevents application freeze.
+</Warning>
+
+## WebSocket Integration
+
+The scale service integrates with the WebSocket server to stream data to web clients:
+
+```csharp
+// In WebSocketServerService initialization
+_scaleService.OnWeightChanged += async (sender, args) =>
+{
+    await _webSocketService.SendScaleDataToAllClientsAsync(args.Data);
+};
+```
+
+Clients receive JSON messages in this format:
+
+```json
+{
+  "Type": "SCALE_READING",
+  "StationId": "Local",
+  "ScaleId": "scale_001",
+  "Weight": 15.75,
+  "Unit": "kg",
+  "Stable": true,
+  "Timestamp": "2026-03-03T14:35:22.123Z"
+}
+```
+
+## Supported Scale Formats
+
+The regex-based parser supports common scale output formats:
+
+- **Comma decimal**: `ST,GS,+  15,00kg`
+- **Period decimal**: `ST,GS,+  15.00kg`
+- **Integer**: `ST,GS,+  15kg`
+- **No prefix**: `15.75`
+
+## Configuration Example
+
+```json
+{
+  "Id": "scale_001",
+  "Name": "Bascula Principal",
+  "PortName": "COM3",
+  "BaudRate": 9600,
+  "DataBits": 8,
+  "Parity": 0,
+  "StopBits": 1,
+  "IsActive": true
+}
+```
+
+## Troubleshooting
+
+<AccordionGroup>
+  <Accordion title="Scale not detected automatically">
+    - Ensure the scale is powered on and connected via USB
+    - Check that COM port drivers are installed (CH340, PL2303, FTDI)
+    - Verify `IsActive` is set to `true` in scale configuration
+    - Check logs for port scan results during monitoring cycle
+  </Accordion>
+  
+  <Accordion title="No weight data received">
+    - Verify baud rate matches scale configuration (usually 9600)
+    - Check that `StartListening(scaleId)` has been called from client
+    - Ensure scale is transmitting data continuously (some scales require activation)
+    - Review logs for regex match failures on incoming data format
+  </Accordion>
+  
+  <Accordion title="Connection drops randomly">
+    - Check USB cable quality and connection stability
+    - Verify port is not being accessed by other applications
+    - Check Windows Device Manager for driver warnings
+    - Review error logs for IOException or UnauthorizedAccessException
+  </Accordion>
+</AccordionGroup>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="WebSocket Server" icon="plug" href="/features/websocket-server">
+    Learn how web clients connect and receive scale data
+  </Card>
+  <Card title="Printer Management" icon="print" href="/features/printer-management">
+    Configure printers for integrated workflows
+  </Card>
+</CardGroup>

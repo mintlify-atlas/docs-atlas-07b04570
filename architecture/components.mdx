@@ -1,0 +1,531 @@
+---
+title: Core Components and Layers
+description: Detailed documentation of the Core and Infrastructure layers, including interfaces, services, and repositories
+---
+
+## Layer Overview
+
+APM's architecture is built on three distinct layers:
+
+1. **Core Layer** - Domain models and interface contracts
+2. **Infrastructure Layer** - Concrete implementations
+3. **Presentation Layer** - User interfaces and entry points
+
+## Core Layer
+
+Location: `source/Core/`
+
+The Core layer defines the business domain without any implementation details. It contains only interfaces, models, and enums.
+
+### Core Interfaces
+
+#### IWebSocketService
+
+Location: `source/Core/Interfaces/IWebSocketService.cs`
+
+Defines the contract for WebSocket server functionality.
+
+```csharp
+public interface IWebSocketService
+{
+    // Events
+    event AsyncEventHandler<string> OnClientConnected;
+    event AsyncEventHandler<string> OnClientDisconnected;
+    event AsyncEventHandler<WebSocketMessageReceivedEventArgs<PrintJobRequest>> OnPrintJobReceived;
+    event AsyncEventHandler<WebSocketMessageReceivedEventArgs<PrintTemplate>> OnTemplateUpdateReceived;
+
+    // Methods
+    Task StartServerAsync(int port);
+    Task StopServerAsync();
+    Task SendPrintJobResultToAllClientsAsync(PrintJobResult result);
+    Task SendPrintJobResultToClientAsync(string clientId, PrintJobResult result);
+    Task SendScaleDataToAllClientsAsync(ScaleData scaleData);
+    Task SendTemplateUpdateResultAsync(string clientId, TemplateUpdateResult result);
+
+    // Properties
+    bool IsRunning { get; }
+    int CurrentClientCount { get; }
+}
+```
+
+**Responsibilities**:
+- Accept WebSocket connections from web clients
+- Receive print job requests and template updates
+- Send results and scale data to connected clients
+- Manage client lifecycle (connect/disconnect)
+
+#### IPrintService
+
+Location: `source/Core/Interfaces/IPrintService.cs`
+
+Orchestrates the complete print workflow.
+
+```csharp
+public interface IPrintService
+{
+    Task<PrintJobResult> ProcessPrintJobAsync(PrintJobRequest request);
+    Task ConfigurePrinterAsync(PrinterSettings settings);
+    Task<PrinterSettings> GetPrinterSettingsAsync(string printerId);
+    Task<List<PrinterSettings>> GetAllPrinterSettingsAsync();
+    Task DeletePrinterSettingsAsync(string printerId);
+}
+```
+
+**Responsibilities**:
+- Process print jobs from request to completion
+- Manage printer configuration
+- Coordinate rendering, command generation, and transmission
+
+#### ITicketRenderer
+
+Location: `source/Core/Interfaces/ITicketRenderer.cs`
+
+Transforms document data into structured ticket content.
+
+```csharp
+public interface ITicketRenderer
+{
+    Task<TicketContent> RenderTicketAsync(PrintJobRequest request, object documentData);
+}
+```
+
+**Responsibilities**:
+- Parse and validate document data
+- Apply templates to create visual layout
+- Generate structured content ready for ESC/POS conversion
+
+#### IEscPosGenerator
+
+Location: `source/Core/Interfaces/IEscPosGenerator.cs`
+
+Generates ESC/POS commands for thermal printers.
+
+```csharp
+public interface IEscPosGenerator
+{
+    Task<byte[]> GenerateEscPosCommandsAsync(TicketContent content, PrinterSettings settings);
+}
+```
+
+**Responsibilities**:
+- Convert ticket content to ESC/POS byte commands
+- Handle text formatting, alignment, fonts
+- Generate barcode and QR code commands
+- Process images and logos
+
+#### ISettingsRepository
+
+Location: `source/Core/Interfaces/ISettingsRepository.cs`
+
+Manages printer configuration persistence.
+
+```csharp
+public interface ISettingsRepository
+{
+    Task SavePrinterSettingsAsync(PrinterSettings settings);
+    Task<PrinterSettings> GetPrinterSettingsAsync(string printerId);
+    Task<List<PrinterSettings>> GetAllPrinterSettingsAsync();
+    Task<bool> DeletePrinterSettingsAsync(string printerId);
+}
+```
+
+#### ITemplateRepository
+
+Location: `source/Core/Interfaces/ITemplateRepository.cs`
+
+Manages print templates for different document types.
+
+```csharp
+public interface ITemplateRepository
+{
+    Task<PrintTemplate> GetTemplateByTypeAsync(string documentType);
+    Task SaveTemplateAsync(PrintTemplate template);
+    Task<List<PrintTemplate>> GetAllTemplatesAsync();
+    Task DeleteTemplateAsync(string templateId);
+    Task EnsureDefaultTemplatesAsync();
+    
+    // Dot matrix support
+    Task<DotMatrixTemplate?> GetDotMatrixTemplateByTypeAsync(string documentType);
+    Task SaveDotMatrixTemplateAsync(DotMatrixTemplate template);
+}
+```
+
+#### IScaleService
+
+Location: `source/Core/Interfaces/IScaleService.cs`
+
+Manages serial scale communication.
+
+```csharp
+public interface IScaleService
+{
+    event EventHandler<ScaleDataEventArgs> OnWeightChanged;
+    
+    Task InitializeAsync();
+    ScaleStatus GetStatus(string scaleId);
+    List<ScaleStatusInfo> GetAllStatuses();
+    void StartListening(string scaleId);
+    void StopListening(string scaleId);
+    Task ReloadScalesAsync();
+    ScaleData? GetLastScaleReading();
+}
+```
+
+#### ILoggingService
+
+Location: `source/Core/Interfaces/ILoggingService.cs`
+
+Centralized logging interface.
+
+#### Platform-Specific Interfaces
+
+**IWorkerServiceManager** (Windows only):
+- Manage Windows Service lifecycle
+- Start/stop/restart service
+- Query service status
+
+**ITrayAppService** (Windows only):
+- System tray icon management
+- Notification handling
+
+**IPlatformService**:
+- Platform-specific operations
+- File system access
+- Native API calls
+
+### Core Models
+
+Location: `source/Core/Models/`
+
+#### PrintJobRequest
+
+Represents an incoming print request.
+
+```csharp
+public class PrintJobRequest
+{
+    public string JobId { get; set; }
+    public string PrinterId { get; set; }
+    public string DocumentType { get; set; }
+    public object Document { get; set; }
+    public int PaperWidth { get; set; }
+    public string Encoding { get; set; }
+}
+```
+
+#### PrintJobResult
+
+Represents the outcome of a print job.
+
+```csharp
+public class PrintJobResult
+{
+    public string JobId { get; set; }
+    public string Status { get; set; } // "DONE" or "ERROR"
+    public string? ErrorMessage { get; set; }
+}
+```
+
+#### PrinterSettings
+
+Stores printer configuration.
+
+```csharp
+public class PrinterSettings
+{
+    public string PrinterId { get; set; }
+    public string Name { get; set; }
+    public string ConnectionType { get; set; } // "TCP", "USB", "IPP"
+    public string? IpAddress { get; set; }
+    public int Port { get; set; }
+    public string? LocalPrinterName { get; set; }
+    public string? Uri { get; set; }
+    public int PaperWidthMm { get; set; }
+    public string CharacterSet { get; set; }
+    public List<string>? CopyToPrinterIds { get; set; }
+}
+```
+
+#### PrintTemplate
+
+Defines the structure and layout of a document.
+
+```csharp
+public class PrintTemplate
+{
+    public string TemplateId { get; set; }
+    public string DocumentType { get; set; }
+    public string Version { get; set; }
+    public List<TemplateSection> Sections { get; set; }
+}
+```
+
+#### TicketContent
+
+Represents rendered ticket ready for ESC/POS conversion.
+
+```csharp
+public class TicketContent
+{
+    public List<RenderedSection> Sections { get; set; }
+    public int PaperWidth { get; set; }
+    public string Encoding { get; set; }
+}
+```
+
+#### Document Data Models
+
+- **SaleTicketDocumentData** - Sales receipt data
+- **CommandDocumentData** - Kitchen/bar command data
+- **ElectronicInvoiceDocumentData** - Invoice data
+- **BarcodeStickerDocumentData** - Barcode label data
+- **ComprobanteEgresoDocumentData** - Payment voucher data
+
+#### Scale Models
+
+- **Scale** - Scale configuration
+- **ScaleData** - Weight reading data
+- **ScaleStatus** - Connection status enum
+
+## Infrastructure Layer
+
+Location: `source/Infraestructure/`
+
+Provides concrete implementations of all core interfaces.
+
+### Key Services
+
+#### WebSocketServerService
+
+Location: `source/Infraestructure/Services/WebSocketServerService.cs`
+
+**Implementation Details**:
+- Uses `HttpListener` to accept WebSocket connections
+- Maintains `ConcurrentDictionary` of connected clients
+- Implements message queue for processing requests
+- Handles both print jobs and template updates
+- Manages scale data subscriptions per client
+
+**Key Features**:
+```csharp
+public class WebSocketServerService : IWebSocketService
+{
+    private HttpListener? _httpListener;
+    private ConcurrentDictionary<string, WebSocket> _connectedClients;
+    private ConcurrentQueue<(string ClientId, string Message)> _messageQueue;
+    private ConcurrentDictionary<string, string> _clientScaleSubscriptions;
+    
+    // Constructor injects dependencies
+    public WebSocketServerService(
+        ILoggingService logger, 
+        IPrintService printService, 
+        IScaleService scaleService)
+    {
+        // Subscribe to scale events
+        _scaleService.OnWeightChanged += ScaleService_OnWeightChanged;
+    }
+}
+```
+
+#### PrintService
+
+Location: `source/Infraestructure/Services/PrintService.cs:27`
+
+**Print Job Processing Flow**:
+
+1. **Validate Printer** - Retrieve printer settings from repository
+2. **Deserialize Document** - Convert JSON to typed document model based on `DocumentType`
+3. **Check Template Type** - Determine thermal vs. dot matrix
+4. **Render Content**:
+   - Thermal: `ITicketRenderer` → `TicketContent`
+   - Dot Matrix: `DotMatrixRendererService` → string grid
+5. **Generate Commands**:
+   - Thermal: `IEscPosGenerator` → ESC/POS bytes
+   - Dot Matrix: `EscPGeneratorService` → ESC/P bytes
+6. **Transmit**:
+   - TCP/IP: `TcpIpPrinterClient`
+   - USB: `LocalRawPrinterClient`
+   - IPP: `IppPrinterClient`
+7. **Handle Copies** - Send to additional printers if configured
+
+**Constructor Injection** (source/Infraestructure/Services/PrintService.cs:27):
+```csharp
+public PrintService(
+    ILoggingService logger,
+    ISettingsRepository settingsRepository,
+    ITicketRenderer ticketRenderer,
+    ITemplateRepository templateRepository,
+    IEscPosGenerator escPosGenerator,
+    TcpIpPrinterClient tcpIpPrinterClient,
+    DotMatrixRendererService dotMatrixRenderer,
+    EscPGeneratorService escPGenerator,
+    LocalRawPrinterClient localRawPrinterClient,
+    IppPrinterClient ippPrinterClient)
+```
+
+#### TicketRendererService
+
+Location: `source/Infraestructure/Services/TicketRendererService.cs`
+
+**Responsibilities**:
+- Load template by document type
+- Merge template with document data
+- Process dynamic fields and expressions
+- Handle images, barcodes, QR codes
+- Format text elements (alignment, font, style)
+
+#### EscPosGeneratorService
+
+Location: `source/Infraestructure/Services/EscPosGeneratorService.cs`
+
+**ESC/POS Command Generation**:
+- Text formatting (bold, underline, size)
+- Alignment (left, center, right)
+- Barcode generation (CODE128, EAN13, etc.)
+- QR code generation
+- Image dithering and printing
+- Paper cut commands
+
+#### SerialScaleService
+
+Location: `source/Infraestructure/Services/SerialScaleService.cs`
+
+**Serial Communication**:
+- Manages multiple scales via `System.IO.Ports.SerialPort`
+- Continuous background reading
+- Protocol-specific data parsing
+- Stability detection
+- Event-driven weight broadcasting
+
+### Printer Clients
+
+#### TcpIpPrinterClient
+
+Location: `source/Infraestructure/Services/TcpIpPrinterClient.cs`
+
+- Direct socket connection to network printers
+- Sends raw ESC/POS bytes over TCP
+
+#### LocalRawPrinterClient
+
+Location: `source/Infraestructure/Services/LocalRawPrinterClient.cs`
+
+- Windows spooler integration
+- Sends raw bytes to USB/local printers
+- Uses Win32 API for direct printing
+
+#### IppPrinterClient
+
+Location: `source/Infraestructure/Services/IppPrinterClient.cs`
+
+- Internet Printing Protocol support
+- Network printer compatibility
+
+### Repositories
+
+#### SettingsRepository
+
+Location: `source/Infraestructure/Repositories/SettingsRepository.cs`
+
+- JSON file-based storage
+- Stores `printers.json` in app data directory
+- Thread-safe read/write operations
+
+#### TemplateRepository
+
+Location: `source/Infraestructure/Repositories/TemplateRepository.cs`
+
+- Individual JSON files per template
+- Default template generation
+- Supports both thermal and dot matrix templates
+
+#### JsonScaleRepository
+
+Location: `source/Infraestructure/Repositories/JsonScaleRepository.cs`
+
+- Stores `scales.json` configuration
+- Scale CRUD operations
+
+### Rendering Services
+
+#### DotMatrixRendererService
+
+Location: `source/Infraestructure/Services/DotMatrixRendererService.cs`
+
+- Text-grid based rendering for dot matrix printers
+- Fixed-width character positioning
+- Supports LX-300 and similar printers
+
+#### EscPGeneratorService
+
+Location: `source/Infraestructure/Services/EscPGeneratorService.cs`
+
+- ESC/P command generation (different from ESC/POS)
+- Line printer control codes
+- Character density and pitch control
+
+### Logger
+
+Location: `source/Infraestructure/Services/Logger.cs`
+
+- File-based logging
+- Log levels (Info, Warning, Error)
+- Rotating log files
+- Console output in debug mode
+
+## Dependency Injection
+
+All components use constructor injection following the Dependency Inversion Principle.
+
+### Service Registration Pattern
+
+Both WorkerService and UI register the same core services:
+
+```csharp
+// Core services
+services.AddSingleton<ILoggingService, Logger>();
+services.AddSingleton<ISettingsRepository, SettingsRepository>();
+services.AddSingleton<ITemplateRepository, TemplateRepository>();
+services.AddSingleton<ITicketRenderer, TicketRendererService>();
+services.AddSingleton<IEscPosGenerator, EscPosGeneratorService>();
+services.AddSingleton<IPrintService, PrintService>();
+
+// Printer clients
+services.AddSingleton<TcpIpPrinterClient>();
+services.AddSingleton<LocalRawPrinterClient>();
+services.AddSingleton<IppPrinterClient>();
+
+// Dot matrix support
+services.AddSingleton<DotMatrixRendererService>();
+services.AddSingleton<EscPGeneratorService>();
+
+// Scale services
+services.AddSingleton<IScaleRepository, JsonScaleRepository>();
+services.AddSingleton<IScaleService, SerialScaleService>();
+```
+
+### Platform-Specific Registration
+
+**Windows**:
+```csharp
+#if WINDOWS
+services.AddSingleton<IWorkerServiceManager, WindowsWorkerServiceManager>();
+services.AddSingleton<ITrayAppService, WindowsTrayAppService>();
+services.AddSingleton<IPlatformService, WindowsPlatformService>();
+services.AddSingleton<IWebSocketService, WebSocketServerService>();
+#endif
+```
+
+**Android**:
+```csharp
+#if ANDROID
+services.AddSingleton<IPlatformService, AndroidPlatformService>();
+services.AddSingleton<IWebSocketService, AndroidWebSocketService>();
+#endif
+```
+
+## Next Steps
+
+- [Worker Service](/architecture/worker-service) - Windows Service implementation details
+- [MAUI Application](/architecture/maui-application) - UI application architecture
+- [System Overview](/architecture/overview) - High-level architecture

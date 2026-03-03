@@ -1,0 +1,349 @@
+---
+title: 'IScaleService'
+description: 'Interface for managing scale devices, monitoring weight readings, and broadcasting scale data to connected clients'
+---
+
+## Overview
+
+The `IScaleService` interface defines the contract for managing scale devices in the Appsiel Print Manager. It handles scale initialization, connection monitoring, weight reading events, and client listening management.
+
+**Namespace:** `AppsielPrintManager.Core.Interfaces`
+
+## Events
+
+### OnWeightChanged
+
+Event triggered when a weight reading is received from any configured scale.
+
+```csharp
+event EventHandler<ScaleDataEventArgs> OnWeightChanged
+```
+
+**Event Args:** `ScaleDataEventArgs` containing:
+- `ScaleId` (string): The identifier of the scale that sent the reading
+- `Data` (ScaleData): The weight data received
+
+**Example:**
+
+```csharp
+public class ScaleMonitor
+{
+    private readonly IScaleService _scaleService;
+
+    public ScaleMonitor(IScaleService scaleService)
+    {
+        _scaleService = scaleService;
+        _scaleService.OnWeightChanged += HandleWeightChanged;
+    }
+
+    private void HandleWeightChanged(object sender, ScaleDataEventArgs e)
+    {
+        Console.WriteLine($"Scale {e.ScaleId}: {e.Data.Weight} {e.Data.Unit}");
+        Console.WriteLine($"Stable: {e.Data.IsStable}");
+    }
+}
+```
+
+## Methods
+
+### InitializeAsync
+
+Initializes all configured scale devices and establishes connections.
+
+```csharp
+Task InitializeAsync()
+```
+
+<ResponseField name="return" type="Task">
+  A task representing the asynchronous initialization operation
+</ResponseField>
+
+**Example:**
+
+```csharp
+await scaleService.InitializeAsync();
+Console.WriteLine("All scales initialized");
+```
+
+---
+
+### GetStatus
+
+Retrieves the current connection status of a specific scale.
+
+```csharp
+ScaleStatus GetStatus(string scaleId)
+```
+
+<ParamField path="scaleId" type="string" required>
+  The unique identifier of the scale
+</ParamField>
+
+<ResponseField name="return" type="ScaleStatus">
+  The current status of the scale (Disconnected, Connected, or Error)
+</ResponseField>
+
+**Example:**
+
+```csharp
+var status = scaleService.GetStatus("scale-01");
+
+switch (status)
+{
+    case ScaleStatus.Connected:
+        Console.WriteLine("Scale is connected and ready");
+        break;
+    case ScaleStatus.Disconnected:
+        Console.WriteLine("Scale is disconnected");
+        break;
+    case ScaleStatus.Error:
+        Console.WriteLine("Scale has an error");
+        break;
+}
+```
+
+---
+
+### GetAllStatuses
+
+Retrieves the status information for all configured scales.
+
+```csharp
+List<ScaleStatusInfo> GetAllStatuses()
+```
+
+<ResponseField name="return" type="List<ScaleStatusInfo>">
+  A list of status information for all scales
+</ResponseField>
+
+**Example:**
+
+```csharp
+var statuses = scaleService.GetAllStatuses();
+
+foreach (var info in statuses)
+{
+    Console.WriteLine($"Scale: {info.ScaleId}");
+    Console.WriteLine($"Status: {info.Status}");
+    
+    if (info.ErrorMessage != null)
+    {
+        Console.WriteLine($"Error: {info.ErrorMessage}");
+    }
+}
+```
+
+---
+
+### StartListening
+
+Starts broadcasting weight data from a specific scale to connected clients.
+
+```csharp
+void StartListening(string scaleId)
+```
+
+<ParamField path="scaleId" type="string" required>
+  The unique identifier of the scale to start broadcasting from
+</ParamField>
+
+**Example:**
+
+```csharp
+scaleService.StartListening("scale-01");
+Console.WriteLine("Started broadcasting scale data to clients");
+```
+
+---
+
+### StopListening
+
+Stops broadcasting weight data from a specific scale to connected clients.
+
+```csharp
+void StopListening(string scaleId)
+```
+
+<ParamField path="scaleId" type="string" required>
+  The unique identifier of the scale to stop broadcasting from
+</ParamField>
+
+**Example:**
+
+```csharp
+scaleService.StopListening("scale-01");
+Console.WriteLine("Stopped broadcasting scale data to clients");
+```
+
+---
+
+### ReloadScalesAsync
+
+Reloads scale configurations from the database or configuration file.
+
+```csharp
+Task ReloadScalesAsync()
+```
+
+<ResponseField name="return" type="Task">
+  A task representing the asynchronous reload operation
+</ResponseField>
+
+**Example:**
+
+```csharp
+// After updating scale configuration in the database
+await scaleService.ReloadScalesAsync();
+Console.WriteLine("Scale configurations reloaded");
+```
+
+---
+
+### GetLastScaleReading
+
+Retrieves the most recent weight reading from any scale.
+
+```csharp
+ScaleData? GetLastScaleReading()
+```
+
+<ResponseField name="return" type="ScaleData?">
+  The last scale reading if available, otherwise null
+</ResponseField>
+
+**Example:**
+
+```csharp
+var lastReading = scaleService.GetLastScaleReading();
+
+if (lastReading != null)
+{
+    Console.WriteLine($"Last weight: {lastReading.Weight} {lastReading.Unit}");
+    Console.WriteLine($"Timestamp: {lastReading.Timestamp}");
+    Console.WriteLine($"Stable: {lastReading.IsStable}");
+}
+else
+{
+    Console.WriteLine("No readings available");
+}
+```
+
+## Supporting Types
+
+### ScaleStatus
+
+Enumeration of possible scale connection states.
+
+```csharp
+public enum ScaleStatus
+{
+    Disconnected,
+    Connected,
+    Error
+}
+```
+
+### ScaleStatusInfo
+
+Contains detailed status information for a scale.
+
+```csharp
+public class ScaleStatusInfo
+{
+    public string ScaleId { get; set; }
+    public ScaleStatus Status { get; set; }
+    public string? ErrorMessage { get; set; }
+}
+```
+
+### ScaleDataEventArgs
+
+Event arguments for weight change events.
+
+```csharp
+public class ScaleDataEventArgs : EventArgs
+{
+    public string ScaleId { get; set; }
+    public ScaleData Data { get; set; }
+
+    public ScaleDataEventArgs(string scaleId, ScaleData data)
+    {
+        ScaleId = scaleId;
+        Data = data;
+    }
+}
+```
+
+## Complete Usage Example
+
+```csharp
+public class ScaleManager
+{
+    private readonly IScaleService _scaleService;
+    private readonly ILogger<ScaleManager> _logger;
+
+    public ScaleManager(IScaleService scaleService, ILogger<ScaleManager> logger)
+    {
+        _scaleService = scaleService;
+        _logger = logger;
+
+        // Subscribe to weight change events
+        _scaleService.OnWeightChanged += OnWeightChanged;
+    }
+
+    public async Task InitializeScalesAsync()
+    {
+        // Initialize all scales
+        await _scaleService.InitializeAsync();
+
+        // Check status of all scales
+        var statuses = _scaleService.GetAllStatuses();
+        foreach (var status in statuses)
+        {
+            _logger.LogInformation(
+                $"Scale {status.ScaleId} status: {status.Status}"
+            );
+
+            if (status.Status == ScaleStatus.Connected)
+            {
+                // Start broadcasting this scale's data
+                _scaleService.StartListening(status.ScaleId);
+            }
+        }
+    }
+
+    private void OnWeightChanged(object sender, ScaleDataEventArgs e)
+    {
+        _logger.LogInformation(
+            $"Scale {e.ScaleId}: {e.Data.Weight} {e.Data.Unit} (Stable: {e.Data.IsStable})"
+        );
+
+        // Process weight reading
+        if (e.Data.IsStable)
+        {
+            ProcessStableWeight(e.ScaleId, e.Data);
+        }
+    }
+
+    private void ProcessStableWeight(string scaleId, ScaleData data)
+    {
+        // Your business logic here
+        _logger.LogInformation($"Processing stable weight from {scaleId}: {data.Weight}");
+    }
+
+    public void StopAllScales()
+    {
+        var statuses = _scaleService.GetAllStatuses();
+        foreach (var status in statuses)
+        {
+            _scaleService.StopListening(status.ScaleId);
+        }
+    }
+}
+```
+
+## See Also
+
+- [Scale Data](/api/models/scale-data)
+- [IWebSocketService](/api/interfaces/websocket-service)
+- [Scale Configuration Guide](/guides/scale-configuration)

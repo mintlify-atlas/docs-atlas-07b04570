@@ -1,0 +1,647 @@
+---
+title: Template Elements
+description: Complete reference for Text, Barcode, QR, Image, and Line elements in APM templates
+---
+
+## Element Types Overview
+
+APM templates support five element types for building print layouts:
+
+- **Text**: Static and dynamic text content
+- **Line**: Horizontal separator lines
+- **Barcode**: 1D barcode generation
+- **QR**: QR code generation
+- **Image**: Image embedding
+
+## Common Element Properties
+
+All elements share these base properties:
+
+| Property | Type | Required | Description |
+| :--- | :--- | :--- | :--- |
+| `Type` | `string` | Yes | Element type: `"Text"`, `"Line"`, `"Barcode"`, `"QR"`, `"Image"` |
+| `Source` | `string` | Conditional | Data property path (e.g., `"Sale.Total"`). Use `"."` for current item in Repeated sections |
+| `StaticValue` | `string` | Conditional | Fixed text value when not using `Source` |
+| `Label` | `string` | No | Static text prefix displayed before the value |
+| `Align` | `string` | No | Alignment: `"Left"`, `"Center"`, `"Right"` (overrides section default) |
+| `Format` | `string` | No | Text formatting string (overrides section default) |
+| `Order` | `int` | No | Element order within section |
+| `Properties` | `object` | No | Additional custom properties (key-value pairs) |
+
+## Text Element
+
+The most common element type for displaying text content.
+
+### Properties
+
+| Property | Type | Description |
+| :--- | :--- | :--- |
+| `Type` | `string` | Must be `"Text"` |
+| `Source` | `string` | Path to data property |
+| `StaticValue` | `string` | Fixed text (used when `Source` is not specified) |
+| `Label` | `string` | Text displayed before the value |
+| `Align` | `string` | `"Left"`, `"Center"`, or `"Right"` |
+| `Format` | `string` | Formatting options (see Format Reference) |
+
+### Table-Specific Properties
+
+| Property | Type | Description |
+| :--- | :--- | :--- |
+| `WidthPercentage` | `int` | Column width percentage (required in Table sections) |
+| `HeaderLabel` | `string` | Column header text |
+| `HeaderAlign` | `string` | Header alignment |
+| `HeaderFormat` | `string` | Header text formatting |
+
+### Example: Static Text
+
+```json
+{
+  "Type": "Text",
+  "StaticValue": "APPSIEL CLOUD POS",
+  "Align": "Center",
+  "Format": "Bold Size2"
+}
+```
+
+### Example: Dynamic Text with Label
+
+```json
+{
+  "Type": "Text",
+  "Label": "Invoice #: ",
+  "Source": "Sale.InvoiceNumber",
+  "Format": "Bold"
+}
+```
+
+**Output:** `Invoice #: 12345`
+
+### Example: Data-Bound Text
+
+```json
+{
+  "Type": "Text",
+  "Source": "Store.Address",
+  "Align": "Center"
+}
+```
+
+### Example: Table Column
+
+```json
+{
+  "Type": "Text",
+  "Source": "ProductName",
+  "WidthPercentage": 50,
+  "HeaderLabel": "Product",
+  "HeaderFormat": "Bold",
+  "HeaderAlign": "Left"
+}
+```
+
+### Example: Repeated Section Item
+
+```json
+{
+  "Type": "Text",
+  "Source": ".",
+  "Align": "Center"
+}
+```
+
+## Line Element
+
+Draws a horizontal separator line across the full paper width.
+
+### Properties
+
+| Property | Type | Description |
+| :--- | :--- | :--- |
+| `Type` | `string` | Must be `"Line"` |
+
+### Example: Simple Line
+
+```json
+{
+  "Type": "Line"
+}
+```
+
+No additional properties are required. Lines automatically span the full width of the paper.
+
+### Example: Lines as Separators
+
+```json
+{
+  "Name": "Header",
+  "Type": "Static",
+  "Elements": [
+    { "Type": "Text", "StaticValue": "RECEIPT", "Format": "Bold" },
+    { "Type": "Line" },
+    { "Type": "Text", "Source": "Sale.Date" },
+    { "Type": "Line" }
+  ]
+}
+```
+
+## Barcode Element
+
+Generates 1D barcodes (e.g., Code128, EAN13, UPC-A).
+
+### Properties
+
+| Property | Type | Description |
+| :--- | :--- | :--- |
+| `Type` | `string` | Must be `"Barcode"` |
+| `Source` | `string` | Data property containing barcode value |
+| `StaticValue` | `string` | Fixed barcode value |
+| `Height` | `int` | Barcode height in dots (1-255, recommended: 50-100) |
+| `BarWidth` | `int` | Module/bar width (1-5, default: 2) |
+| `Align` | `string` | Barcode alignment |
+
+### HRI (Human Readable Interpretation)
+
+The barcode value text can be displayed below the barcode. This is typically configured through the `Properties` object:
+
+```json
+"Properties": {
+  "Hri": "true"
+}
+```
+
+### Example: Invoice Barcode
+
+```json
+{
+  "Type": "Barcode",
+  "Source": "Sale.InvoiceNumber",
+  "Height": 60,
+  "BarWidth": 2,
+  "Align": "Center"
+}
+```
+
+### Example: Product Barcode with HRI
+
+```json
+{
+  "Type": "Barcode",
+  "Source": "Product.Barcode",
+  "Height": 50,
+  "BarWidth": 3,
+  "Align": "Center",
+  "Properties": {
+    "Hri": "true"
+  }
+}
+```
+
+### Example: Static Barcode
+
+```json
+{
+  "Type": "Barcode",
+  "StaticValue": "1234567890",
+  "Height": 70,
+  "Align": "Center"
+}
+```
+
+### Barcode Sizing Guidelines
+
+- **Height**: 50-100 dots for standard receipts
+- **BarWidth**: 
+  - 1-2: Small/compact barcodes
+  - 3: Standard readability
+  - 4-5: Large/high-contrast for difficult scanning conditions
+
+## QR Code Element
+
+Generates QR codes for URLs, text, or structured data.
+
+### Properties
+
+| Property | Type | Description |
+| :--- | :--- | :--- |
+| `Type` | `string` | Must be `"QR"` |
+| `Source` | `string` | Data property containing QR content |
+| `StaticValue` | `string` | Fixed QR content |
+| `Size` | `int` | Module size (1-16, recommended: 3-4) |
+| `Align` | `string` | QR code alignment |
+
+### Size Property
+
+The `Size` property can be specified directly or through the `Properties` object:
+
+```json
+// Direct property
+"Size": 4
+
+// Via Properties object
+"Properties": {
+  "Size": "4"
+}
+```
+
+### Example: Invoice URL QR Code
+
+```json
+{
+  "Type": "QR",
+  "Source": "Sale.InvoiceUrl",
+  "Size": 4,
+  "Align": "Center"
+}
+```
+
+### Example: Feedback QR Code
+
+```json
+{
+  "Type": "QR",
+  "StaticValue": "https://feedback.example.com",
+  "Size": 3,
+  "Align": "Center"
+}
+```
+
+### Example: Dynamic QR with Properties
+
+```json
+{
+  "Type": "QR",
+  "Source": "Payment.QRData",
+  "Align": "Center",
+  "Properties": {
+    "Size": "4"
+  }
+}
+```
+
+### QR Size Guidelines
+
+- **Size 1-2**: Very small, may be difficult to scan
+- **Size 3**: Minimum recommended for reliable scanning
+- **Size 4**: Good balance of size and scannability
+- **Size 5-6**: Large QR codes for long-distance scanning
+- **Size 7+**: Very large, use only when necessary
+
+## Image Element
+
+Embeds images (logos, graphics) in the printed output.
+
+### Properties
+
+| Property | Type | Description |
+| :--- | :--- | :--- |
+| `Type` | `string` | Must be `"Image"` |
+| `Source` | `string` | Path to image file or data property containing image path |
+| `Height` | `int` | Image height in dots (1-255) |
+| `Align` | `string` | Image alignment |
+
+### Example: Store Logo
+
+```json
+{
+  "Type": "Image",
+  "Source": "Store.LogoPath",
+  "Height": 100,
+  "Align": "Center"
+}
+```
+
+### Example: Static Image
+
+```json
+{
+  "Type": "Image",
+  "StaticValue": "C:\\Images\\logo.png",
+  "Height": 80,
+  "Align": "Center"
+}
+```
+
+### Image Guidelines
+
+- Use monochrome (1-bit) images for best results on thermal printers
+- Recommended width: 384-576 pixels for 80mm paper
+- Height determines printed size, width is auto-scaled
+- Supported formats depend on printer capabilities (typically BMP, PNG)
+
+## Format Reference
+
+The `Format` property accepts space-separated values that can be combined.
+
+### Font Types
+
+| Value | Description | Characters per Line (80mm) |
+| :--- | :--- | :--- |
+| `FontA` | Standard font | 48 characters |
+| `FontB` | Condensed font | 64 characters |
+
+### Text Styles
+
+| Value | Description |
+| :--- | :--- |
+| `Bold` | Bold text |
+| `Underline` | Underlined text |
+
+### Size Modifiers
+
+| Value | Description |
+| :--- | :--- |
+| `Large` | Double height text |
+| `DoubleWidth` | Double width text |
+| `Size2` | 2x proportional scaling |
+| `Size3` | 3x proportional scaling |
+| `Size4` | 4x proportional scaling |
+| `Size5` | 5x proportional scaling |
+| `Size6` | 6x proportional scaling |
+| `Size7` | 7x proportional scaling |
+| `Size8` | 8x proportional scaling |
+
+### Format Combinations
+
+```json
+"Format": "Bold"                    // Bold only
+"Format": "Large"                   // Double height
+"Format": "Bold Large"              // Bold + double height
+"Format": "FontB"                   // Condensed font
+"Format": "Bold Size2"              // Bold + 2x size
+"Format": "Bold Underline Large"   // Multiple styles
+"Format": "Size3"                   // 3x proportional size
+```
+
+## Complete Examples
+
+### Example: Receipt Header with Logo
+
+```json
+{
+  "Name": "Header",
+  "Type": "Static",
+  "Align": "Center",
+  "Elements": [
+    {
+      "Type": "Image",
+      "Source": "Store.LogoPath",
+      "Height": 80
+    },
+    {
+      "Type": "Text",
+      "StaticValue": "APPSIEL CLOUD POS",
+      "Format": "Bold Size2"
+    },
+    {
+      "Type": "Text",
+      "Source": "Store.Name",
+      "Format": "Bold"
+    },
+    {
+      "Type": "Text",
+      "Source": "Store.Address"
+    },
+    {
+      "Type": "Text",
+      "Source": "Store.Phone"
+    },
+    {
+      "Type": "Line"
+    }
+  ]
+}
+```
+
+### Example: Product Table
+
+```json
+{
+  "Name": "Items",
+  "Type": "Table",
+  "DataSource": "Sale.Items",
+  "Elements": [
+    {
+      "Type": "Text",
+      "Source": "Quantity",
+      "WidthPercentage": 15,
+      "HeaderLabel": "Qty",
+      "HeaderFormat": "Bold",
+      "Align": "Center",
+      "HeaderAlign": "Center"
+    },
+    {
+      "Type": "Text",
+      "Source": "ProductName",
+      "WidthPercentage": 45,
+      "HeaderLabel": "Product",
+      "HeaderFormat": "Bold"
+    },
+    {
+      "Type": "Text",
+      "Source": "Price",
+      "WidthPercentage": 20,
+      "HeaderLabel": "Price",
+      "HeaderFormat": "Bold",
+      "Align": "Right",
+      "HeaderAlign": "Right"
+    },
+    {
+      "Type": "Text",
+      "Source": "Total",
+      "WidthPercentage": 20,
+      "HeaderLabel": "Total",
+      "HeaderFormat": "Bold",
+      "Align": "Right",
+      "HeaderAlign": "Right"
+    }
+  ]
+}
+```
+
+### Example: Totals Section with Formatting
+
+```json
+{
+  "Name": "Totals",
+  "Type": "Static",
+  "Elements": [
+    {
+      "Type": "Line"
+    },
+    {
+      "Type": "Text",
+      "Label": "Subtotal: ",
+      "Source": "Sale.Subtotal",
+      "Align": "Right"
+    },
+    {
+      "Type": "Text",
+      "Label": "Tax (16%): ",
+      "Source": "Sale.Tax",
+      "Align": "Right"
+    },
+    {
+      "Type": "Text",
+      "Label": "Discount: ",
+      "Source": "Sale.Discount",
+      "Align": "Right"
+    },
+    {
+      "Type": "Line"
+    },
+    {
+      "Type": "Text",
+      "Label": "TOTAL: ",
+      "Source": "Sale.Total",
+      "Format": "Bold Large",
+      "Align": "Right"
+    },
+    {
+      "Type": "Line"
+    }
+  ]
+}
+```
+
+### Example: Footer with Messages, Barcode, and QR
+
+```json
+[
+  {
+    "Name": "Footer Messages",
+    "Type": "Repeated",
+    "DataSource": "Footer",
+    "Align": "Center",
+    "Elements": [
+      {
+        "Type": "Text",
+        "Source": "."
+      }
+    ]
+  },
+  {
+    "Name": "Invoice Barcode",
+    "Type": "Static",
+    "Align": "Center",
+    "Elements": [
+      {
+        "Type": "Line"
+      },
+      {
+        "Type": "Text",
+        "StaticValue": "Invoice Number",
+        "Format": "FontB"
+      },
+      {
+        "Type": "Barcode",
+        "Source": "Sale.InvoiceNumber",
+        "Height": 50,
+        "BarWidth": 2
+      }
+    ]
+  },
+  {
+    "Name": "QR Code",
+    "Type": "Static",
+    "Align": "Center",
+    "Elements": [
+      {
+        "Type": "Line"
+      },
+      {
+        "Type": "Text",
+        "StaticValue": "Scan for receipt",
+        "Format": "FontB"
+      },
+      {
+        "Type": "QR",
+        "Source": "Sale.InvoiceUrl",
+        "Size": 4
+      }
+    ]
+  }
+]
+```
+
+## Element Ordering
+
+Within a section, elements can be ordered using the `Order` property:
+
+```json
+"Elements": [
+  { "Type": "Text", "StaticValue": "First", "Order": 1 },
+  { "Type": "Text", "StaticValue": "Third", "Order": 3 },
+  { "Type": "Text", "StaticValue": "Second", "Order": 2 }
+]
+```
+
+If `Order` is not specified, elements print in array order.
+
+## Best Practices
+
+### Text Elements
+
+- Use `Label` for static prefixes instead of concatenating in data
+- Apply formatting at section level when possible
+- Use `FontB` for fitting more characters per line
+- Test long text values to ensure they don't overflow
+
+### Barcodes
+
+- Validate barcode data format matches the barcode type
+- Use `Height` of 50-100 for good scannability
+- Center-align barcodes for best presentation
+- Test scanning with actual barcode readers
+
+### QR Codes
+
+- Keep QR content concise for better scanning
+- Use Size 3-4 for optimal balance
+- Test with multiple QR reader apps
+- Ensure QR data is properly URL-encoded if using URLs
+
+### Images
+
+- Use monochrome images for thermal printers
+- Keep file sizes small for faster processing
+- Test image quality on actual printer
+- Consider printer DPI when sizing images
+
+### Lines
+
+- Use lines to separate logical sections
+- Avoid excessive lines (reduces readability)
+- Lines work well before/after totals
+
+## Troubleshooting
+
+### Text not displaying
+- Verify `Source` path exists in data model
+- Check that either `Source` or `StaticValue` is specified
+- Ensure data type is compatible (convert numbers to strings if needed)
+
+### Barcode not printing
+- Validate barcode value is in correct format
+- Check `Height` is within printer limits (1-255)
+- Ensure barcode type is supported by printer
+
+### QR code too large/small
+- Adjust `Size` property (recommended: 3-4)
+- Verify QR content is not too long (may create very dense QR codes)
+
+### Image not appearing
+- Verify image file path is correct and accessible
+- Check image format is supported
+- Ensure image is monochrome for thermal printers
+- Validate `Height` is reasonable for paper size
+
+## See Also
+
+<CardGroup cols={2}>
+  <Card title="Template Structure" icon="sitemap" href="/templates/structure">
+    Complete JSON structure and properties
+  </Card>
+  <Card title="Section Types" icon="layer-group" href="/templates/sections">
+    Static, Table, and Repeated sections
+  </Card>
+</CardGroup>

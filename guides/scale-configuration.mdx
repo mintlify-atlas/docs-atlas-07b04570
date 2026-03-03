@@ -1,0 +1,233 @@
+---
+title: Scale Configuration
+description: Configure serial scales for weight-based printing in APM
+icon: scale-balanced
+---
+
+APM supports serial communication with electronic scales for weight-based transactions. This guide shows you how to configure and test scale connections.
+
+## Adding a New Scale
+
+<Steps>
+  <Step title="Navigate to Scales">
+    From the main menu, select **Scales** to open the scale management page.
+    
+    Click the **+ Add Scale** button to create a new scale configuration.
+  </Step>
+
+  <Step title="Configure Basic Information">
+    **ID** (Id)  
+    A unique identifier for the scale.  
+    Example: `bascula01`, `scale_checkout`
+    
+    <Note>
+      The ID cannot be changed after creation.
+    </Note>
+
+    **Name** (Name)  
+    A friendly display name for the scale.  
+    Example: `Báscula Principal`, `Checkout Scale 1`
+  </Step>
+
+  <Step title="Select COM Port">
+    **Port Name** (PortName)  
+    Select the COM port where the scale is connected.
+    
+    Example: `COM1`, `COM3`, `COM5`
+
+    <Tip>
+      Click the **⟳** refresh button to reload available COM ports if your scale isn't listed.
+    </Tip>
+
+    <Note>
+      If you don't see your COM port:
+      - Check Device Manager in Windows to verify the port number
+      - Ensure scale drivers are installed
+      - Verify the USB-to-Serial adapter is properly connected
+    </Note>
+  </Step>
+
+  <Step title="Configure Serial Communication">
+    Set the serial communication parameters to match your scale's specifications.
+
+    **Baud Rate** (BaudRate)  
+    Data transmission speed in bits per second.  
+    Default: `9600`  
+    Common values: `1200`, `2400`, `4800`, `9600`, `19200`, `38400`
+
+    **Data Bits** (DataBits)  
+    Number of data bits per transmission.  
+    Default: `8`  
+    Common values: `7`, `8`
+
+    **Parity** (Parity)  
+    Error checking method:
+    - `None` - No parity checking (most common)
+    - `Odd` - Odd parity
+    - `Even` - Even parity
+    - `Mark` - Mark parity
+    - `Space` - Space parity
+    
+    Default: `None`
+
+    **Stop Bits** (StopBits)  
+    Number of stop bits:
+    - `None` - No stop bits
+    - `One` - 1 stop bit (most common)
+    - `Two` - 2 stop bits
+    - `OnePointFive` - 1.5 stop bits
+    
+    Default: `One`
+  </Step>
+
+  <Step title="Save and Activate">
+    The **Active** toggle (IsActive) determines if the scale is enabled.
+    
+    Default: `true` (enabled)
+
+    Click **Save Scale** to save your configuration.
+  </Step>
+</Steps>
+
+## Finding Your Scale's Serial Settings
+
+Serial communication parameters vary by manufacturer and model. Check:
+
+1. **Scale manual** - Most manufacturers document these settings
+2. **Scale display menu** - Some scales allow viewing/changing settings via on-screen menu
+3. **Manufacturer website** - Download the technical specifications or user manual
+
+### Common Scale Configurations
+
+<AccordionGroup>
+  <Accordion title="Standard Configuration (Most Scales)">
+    ```
+    Baud Rate: 9600
+    Data Bits: 8
+    Parity: None
+    Stop Bits: One
+    ```
+  </Accordion>
+
+  <Accordion title="Toledo Scales">
+    ```
+    Baud Rate: 9600
+    Data Bits: 7
+    Parity: Even
+    Stop Bits: One
+    ```
+  </Accordion>
+
+  <Accordion title="Mettler Toledo">
+    ```
+    Baud Rate: 9600
+    Data Bits: 8
+    Parity: None
+    Stop Bits: One
+    ```
+  </Accordion>
+
+  <Accordion title="CAS Scales">
+    ```
+    Baud Rate: 9600
+    Data Bits: 8
+    Parity: None
+    Stop Bits: One
+    ```
+  </Accordion>
+</AccordionGroup>
+
+## Configuration Example
+
+<CodeGroup>
+```json Scale Configuration
+{
+  "Id": "bascula01",
+  "Name": "Báscula Principal",
+  "PortName": "COM3",
+  "BaudRate": 9600,
+  "DataBits": 8,
+  "Parity": "None",
+  "StopBits": "One",
+  "IsActive": true
+}
+```
+
+```csharp Scale Model (C#)
+public class Scale
+{
+    public string Id { get; set; } = string.Empty;
+    public string Name { get; set; } = string.Empty;
+    public string PortName { get; set; } = string.Empty;
+    public int BaudRate { get; set; } = 9600;
+    public int DataBits { get; set; } = 8;
+    public ScaleParity Parity { get; set; } = ScaleParity.None;
+    public ScaleStopBits StopBits { get; set; } = ScaleStopBits.One;
+    public bool IsActive { get; set; } = true;
+}
+```
+</CodeGroup>
+
+## Enum Values
+
+### ScaleParity
+
+| Value | Integer | Description |
+|-------|---------|-------------|
+| None | 0 | No parity checking |
+| Odd | 1 | Odd parity |
+| Even | 2 | Even parity |
+| Mark | 3 | Mark parity |
+| Space | 4 | Space parity |
+
+### ScaleStopBits
+
+| Value | Integer | Description |
+|-------|---------|-------------|
+| None | 0 | No stop bits |
+| One | 1 | 1 stop bit |
+| Two | 2 | 2 stop bits |
+| OnePointFive | 3 | 1.5 stop bits |
+
+## Troubleshooting
+
+<AccordionGroup>
+  <Accordion title="Scale not responding">
+    - Verify the COM port is correct in Device Manager
+    - Check that no other application is using the same COM port
+    - Ensure the scale is powered on and in ready state
+    - Try different baud rate settings if unsure of scale configuration
+  </Accordion>
+
+  <Accordion title="Incorrect weight readings">
+    - Verify all serial parameters match your scale's specifications
+    - Check for loose cable connections
+    - Ensure the scale is calibrated properly
+    - Test with the scale's built-in diagnostics if available
+  </Accordion>
+
+  <Accordion title="COM port not listed">
+    - Install or update the scale's USB driver
+    - Check Device Manager for any hardware errors (yellow exclamation mark)
+    - Try a different USB port
+    - Click the **⟳** refresh button after connecting the scale
+  </Accordion>
+
+  <Accordion title="Intermittent connection">
+    - Check for electromagnetic interference near the scale
+    - Use a shielded serial cable
+    - Avoid running the cable near power lines or motors
+    - Try lowering the baud rate (e.g., from 9600 to 4800)
+  </Accordion>
+</AccordionGroup>
+
+## Related Documentation
+
+<CardGroup cols={2}>
+  <Card title="Template Editor" icon="palette" href="/guides/template-editor">
+    Use scale data in receipt templates
+  </Card>
+  <Card title="API Reference" icon="code" href="/api-reference">
+    Scale configuration API endpoints
+  </Card>
+</CardGroup>

@@ -1,0 +1,166 @@
+---
+title: Printer Configuration
+description: Learn how to configure thermal and dot matrix printers in APM
+icon: printer
+---
+
+APM supports both thermal and dot matrix printers with multiple connection types. This guide walks you through configuring printers for your POS system.
+
+## Adding a New Printer
+
+<Steps>
+  <Step title="Navigate to Printers">
+    From the main menu, select **Printers** to open the printer management page.
+    
+    Click the **+ Add Printer** button to create a new printer configuration.
+  </Step>
+
+  <Step title="Configure Basic Settings">
+    Enter the basic printer information:
+
+    **Printer ID** (PrinterId)  
+    A unique identifier for this printer used by Appsiel to route print jobs.
+    
+    Example: `ImpresoraCocina`, `PrinterCheckout1`
+
+    **Printer Type** (PrinterType)  
+    Select the printer type:
+    - `Térmica` - Thermal receipt printers (most common)
+    - `Matricial` - Dot matrix printers
+  </Step>
+
+  <Step title="Choose Connection Type">
+    Select how the printer connects to your system:
+
+    ### TCP (Network Connection)
+    Available for both thermal and dot matrix printers.
+
+    **IP Address** (IpAddress)  
+    The fixed IP address of the printer on your local network.  
+    Example: `192.168.1.100`
+
+    **Port** (Port)  
+    TCP/IP port number (typically `9100` for thermal printers).  
+    Default: `9100`
+
+    <Note>
+      The connection URI is automatically generated as: `tcp://192.168.1.100:9100`
+    </Note>
+
+    ### USB (Local Connection)
+    Only available for dot matrix printers.
+
+    **Local Printer Name** (LocalPrinterName)  
+    The exact name of the printer as registered in Windows.  
+    Example: `EPSON LX-300+ II`
+
+    <Tip>
+      To find the printer name, open Windows Settings > Devices > Printers & scanners
+    </Tip>
+
+    ### IPP (Internet Printing Protocol)
+    Only available for dot matrix printers.
+
+    **URI** (Uri)  
+    The complete IPP connection string.  
+    Example: `ipp://192.168.1.50/ipp/print`
+  </Step>
+
+  <Step title="Configure Paper Settings">
+    <Note>
+      Paper settings are only available for **thermal printers**. Dot matrix printers use standard paper sizes.
+    </Note>
+
+    **Paper Width** (PaperWidthMm)  
+    Select the paper width in millimeters:
+    - `58mm` - Narrow receipt paper
+    - `80mm` - Standard receipt paper (most common)
+  </Step>
+
+  <Step title="Set Printer Options">
+    <Note>
+      These options are only available for **thermal printers**.
+    </Note>
+
+    **Beep on Print** (BeepOnPrint)  
+    Enable sound notification when printing completes.
+
+    **Open Cash Drawer After Print** (OpenCashDrawerAfterPrint)  
+    Automatically trigger the cash drawer to open after printing a receipt.
+
+    **Open Cash Drawer Without Print** (OpenCashDrawerWithoutPrint)  
+    Allow the cash drawer to open without printing (for quick access).
+  </Step>
+
+  <Step title="Save Configuration">
+    Click **Save Printer** to save your configuration.
+    
+    The printer will be immediately available for print job routing.
+  </Step>
+</Steps>
+
+## Advanced: Copy to Multiple Printers
+
+You can configure a printer to copy print jobs to additional printers using the `CopyToPrinterIds` property.
+
+<CodeGroup>
+```json Configuration Example
+{
+  "PrinterId": "MainPrinter",
+  "ConnectionType": "TCP",
+  "IpAddress": "192.168.1.100",
+  "Port": 9100,
+  "CopyToPrinterIds": [
+    "BackupPrinter",
+    "KitchenPrinter"
+  ]
+}
+```
+</CodeGroup>
+
+When a print job is sent to `MainPrinter`, it will automatically be copied to both `BackupPrinter` and `KitchenPrinter`.
+
+## Connection URI Format
+
+APM automatically generates a universal connection URI based on your configuration:
+
+| Connection Type | URI Format | Example |
+|----------------|-----------|----------|
+| TCP | `tcp://{IpAddress}:{Port}` | `tcp://192.168.1.100:9100` |
+| USB | `usb://{LocalPrinterName}` | `usb://EPSON LX-300+ II` |
+| IPP | User-provided URI | `ipp://192.168.1.50/ipp/print` |
+
+## Troubleshooting
+
+<AccordionGroup>
+  <Accordion title="Printer not responding">
+    - Verify the IP address is correct and the printer is powered on
+    - Check that port 9100 (or your configured port) is not blocked by firewall
+    - Test connectivity with `ping {IP_ADDRESS}` from command prompt
+    - Ensure the printer is on the same network as the APM server
+  </Accordion>
+
+  <Accordion title="USB printer not found">
+    - Verify the printer name matches exactly (case-sensitive)
+    - Ensure printer drivers are installed in Windows
+    - Check that the printer is set as "Ready" in Windows Printers settings
+    - Restart the WorkerService after installing new printer drivers
+  </Accordion>
+
+  <Accordion title="Cash drawer not opening">
+    - Verify the cash drawer is properly connected to the printer's RJ11/RJ12 port
+    - Check that the drawer is compatible with ESC/POS kick commands
+    - Test with "Open Cash Drawer Without Print" enabled
+  </Accordion>
+</AccordionGroup>
+
+## Related Documentation
+
+<CardGroup cols={2}>
+  <Card title="Template Editor" icon="palette" href="/guides/template-editor">
+    Design custom receipt templates
+  </Card>
+  <Card title="API Reference" icon="code" href="/api-reference">
+    Printer configuration API endpoints
+  </Card>
+</CardGroup>

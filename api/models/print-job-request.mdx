@@ -1,0 +1,101 @@
+---
+title: "PrintJobRequest"
+description: "Representa la solicitud completa de un trabajo de impresión enviada por Appsiel. Este modelo encapsula todos los datos necesarios para generar un ticket."
+---
+
+## Properties
+
+<ParamField path="JobId" type="string" required>
+  Identificador único del trabajo de impresión.
+</ParamField>
+
+<ParamField path="StationId" type="string" required>
+  Identificador de la estación o caja desde donde se origina la solicitud.
+</ParamField>
+
+<ParamField path="PrinterId" type="string" required>
+  Identificador de la impresora destino donde se debe realizar la impresión.
+</ParamField>
+
+<ParamField path="DocumentType" type="string" required>
+  Tipo de documento a imprimir (ej. "ticket_venta", "comanda", "factura_electronica", "sticker").
+  Este tipo define el formato de impresión a utilizar.
+</ParamField>
+
+<ParamField path="Document" type="object" required>
+  Contiene los datos principales del documento a imprimir, tipados fuertemente
+  después de la deserialización inicial en el PrintService.
+</ParamField>
+
+<ParamField path="Images" type="array">
+  Lista de imágenes a insertar en el ticket, cada una con sus propiedades.
+  
+  <Expandable title="ImageProperties">
+    Array of image property objects to be inserted in the print job.
+  </Expandable>
+</ParamField>
+
+<ParamField path="Barcodes" type="array">
+  Lista de códigos de barras a insertar en el ticket, cada uno con sus propiedades.
+  
+  <Expandable title="BarcodeProperties">
+    Array of barcode property objects to be inserted in the print job.
+  </Expandable>
+</ParamField>
+
+<ParamField path="QRs" type="array">
+  Lista de códigos QR a insertar en el ticket, cada uno con sus propiedades.
+  
+  <Expandable title="QRProperties">
+    Array of QR code property objects to be inserted in the print job.
+  </Expandable>
+</ParamField>
+
+## JSON Example
+
+```json
+{
+  "JobId": "job_20260303_001234",
+  "StationId": "CAJA_01",
+  "PrinterId": "PRINTER_THERMAL_01",
+  "DocumentType": "ticket_venta",
+  "Document": {
+    "Number": "FAC-001234",
+    "Date": "2026-03-03T10:30:00",
+    "Customer": "Juan Pérez",
+    "Items": [
+      {
+        "Code": "PROD001",
+        "Description": "Producto Example",
+        "Quantity": 2,
+        "UnitPrice": 15000,
+        "Total": 30000
+      }
+    ],
+    "Total": 30000
+  },
+  "Images": [
+    {
+      "Source": "Document.LogoBase64",
+      "Align": "Center",
+      "Order": 1
+    }
+  ],
+  "Barcodes": [
+    {
+      "Source": "Document.Number",
+      "Type": "CODE128",
+      "Align": "Center",
+      "Order": 10
+    }
+  ],
+  "QRs": [
+    {
+      "Source": "Document.QRData",
+      "Size": 6,
+      "Align": "Center",
+      "Order": 11
+    }
+  ]
+}
+```

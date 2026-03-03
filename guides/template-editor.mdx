@@ -1,0 +1,310 @@
+---
+title: Template Editor
+description: Design and customize receipt templates with the visual template editor
+icon: palette
+---
+
+The Template Editor allows you to create custom receipt layouts with text, barcodes, QR codes, images, and tables. Templates are organized into sections and elements for maximum flexibility.
+
+## Understanding Templates
+
+Templates consist of:
+- **Template Name** - Identifier for the template
+- **Sections** - Logical groups of content (header, body, footer, etc.)
+- **Elements** - Individual print items within each section (text, barcode, image, etc.)
+
+## Opening the Template Editor
+
+<Steps>
+  <Step title="Navigate to Templates">
+    From the main menu, select **Templates** to view available print templates.
+  </Step>
+
+  <Step title="Select a Template">
+    Click on an existing template to edit it.
+    
+    The editor will load with all sections and elements visible.
+  </Step>
+
+  <Step title="Edit Template Name">
+    At the top of the editor, you can change the template name in the text field.
+    
+    Example: `Factura de Venta`, `Recibo de Caja`, `Ticket Cocina`
+  </Step>
+</Steps>
+
+## Working with Sections
+
+Sections organize your template into logical blocks like headers, item lists, and footers.
+
+### Adding a Section
+
+<Steps>
+  <Step title="Click Add Section">
+    Click the **+ Sección** button in the header to create a new section.
+  </Step>
+
+  <Step title="Configure Section Properties">
+    **Name** - Section identifier (e.g., "Encabezado", "Items", "Pie de Página")
+
+    **Type** (Type) - Section behavior:
+    - `Static` - Prints once with fixed content
+    - `Repeating` - Repeats for each item in a data source
+
+    **Alignment** (Align) - Content alignment:
+    - `Left`
+    - `Center`
+    - `Right`
+
+    **Data Source** (DataSource) - Only visible for repeating sections  
+    Select which data collection to iterate over (e.g., `Items`, `Payments`)
+
+    **Format** - Text formatting:
+    - Size dropdown: `Small`, `Medium`, `Large`, etc.
+    - **N** checkbox: Bold text
+  </Step>
+
+  <Step title="Expand/Collapse Section">
+    Click the **▼** or **▶** icon to toggle section visibility.
+  </Step>
+</Steps>
+
+### Section Controls
+
+| Button | Action |
+|--------|--------|
+| ▼/▶ | Expand/collapse section |
+| ↑ | Move section up |
+| ↓ | Move section down |
+| + | Add element to section |
+| ✕ | Delete section |
+
+## Working with Elements
+
+Elements are the individual print items within a section.
+
+### Adding an Element
+
+<Steps>
+  <Step title="Add Element to Section">
+    Click the **+** button in the section header to add a new element.
+  </Step>
+
+  <Step title="Select Element Type">
+    Choose from:
+    - **Text** - Display text or data fields
+    - **Barcode** - Print 1D barcodes
+    - **QR** - Print QR codes
+    - **Image** - Print images
+    - **Table** - Print tabular data
+  </Step>
+</Steps>
+
+### Element Types
+
+<Tabs>
+  <Tab title="Text">
+    Display static text or dynamic data fields.
+
+    **Static/Dynamic Toggle**
+    - **Static** - Fixed text entered manually
+    - **Dynamic** - Data from a source field
+
+    **Label** - Optional prefix label (e.g., "Cant:", "Total:")
+
+    **Value** (for static) - The text to print
+
+    **Source** (for dynamic) - Data field to display  
+    Examples: `DocumentNumber`, `CustomerName`, `Total`
+
+    **Alignment** - `Left`, `Center`, `Right`
+
+    **Size** - Font size
+
+    **Bold** - Make text bold
+  </Tab>
+
+  <Tab title="Barcode">
+    Print 1D barcodes (Code128, Code39, EAN13, etc.)
+
+    **Source** - Data field containing barcode value  
+    Example: `ProductCode`, `DocumentNumber`
+
+    **Columns** (Columns) - Barcode width in columns
+
+    **Alignment** - Barcode alignment
+
+    **Height** (Height) - Barcode height in pixels (20-255)
+
+    **Bar Width** (BarWidth) - Width of individual bars (1-5)
+  </Tab>
+
+  <Tab title="QR Code">
+    Print QR codes for mobile scanning.
+
+    **Source** - Data field for QR content  
+    Example: `InvoiceURL`, `PaymentLink`
+
+    **Size** (Size) - QR code size (1-16)  
+    Larger numbers = bigger QR code
+
+    **Alignment** - QR code alignment
+  </Tab>
+
+  <Tab title="Image">
+    Print embedded images (logos, graphics).
+
+    **Height** (Height) - Image height in pixels
+
+    **Alignment** - Image alignment
+
+    <Note>
+      Image source configuration depends on your document type and available image fields.
+    </Note>
+  </Tab>
+
+  <Tab title="Table">
+    Print columnar data with headers.
+
+    **Width Percentage** (WidthPercentage) - Column width as percentage (0-100)
+
+    **Header Size** (SelectedHeaderSizeIdx) - Font size for column header
+
+    **Header Bold** (IsHeaderBold) - Make header text bold
+
+    <Tip>
+      Tables are commonly used in repeating sections to display item lists with columns like Qty, Description, Price.
+    </Tip>
+  </Tab>
+</Tabs>
+
+### Element Controls
+
+| Button | Action |
+|--------|--------|
+| ↑ | Move element up |
+| ↓ | Move element down |
+| ✕ | Delete element |
+
+## Data Sources and Field Suggestions
+
+The editor provides field suggestions based on your document type. Common fields include:
+
+- `DocumentNumber` - Invoice/receipt number
+- `DocumentDate` - Transaction date
+- `CustomerName` - Customer name
+- `Total` - Total amount
+- `Items` - Line items collection
+- `Quantity` - Item quantity
+- `Description` - Item description
+- `Price` - Item price
+
+<Note>
+  Available fields vary depending on the document type (Invoice, Receipt, Kitchen Ticket, etc.)
+</Note>
+
+## Saving Your Template
+
+<Steps>
+  <Step title="Review Your Design">
+    Scroll through all sections to verify your layout.
+    
+    Ensure all data sources are correctly mapped.
+  </Step>
+
+  <Step title="Save Template">
+    Click **Guardar Plantilla** at the bottom of the editor.
+    
+    A success message confirms the template was saved.
+  </Step>
+
+  <Step title="Test Printing">
+    Navigate back to the template list and test print with sample data.
+  </Step>
+</Steps>
+
+## Template Design Tips
+
+<CardGroup cols={2}>
+  <Card title="Use Sections Wisely" icon="layer-group">
+    Separate header, repeating items, and footer into distinct sections for clarity.
+  </Card>
+  
+  <Card title="Alignment Matters" icon="align-center">
+    Center titles and totals, left-align item descriptions, right-align prices.
+  </Card>
+  
+  <Card title="Test with Real Data" icon="flask">
+    Always test templates with actual transaction data before production use.
+  </Card>
+  
+  <Card title="Keep It Simple" icon="minimize">
+    Thermal printers have limited width - avoid overcrowding elements.
+  </Card>
+</CardGroup>
+
+## Common Template Patterns
+
+### Invoice Header
+```
+Section: "Header" (Static, Center)
+  Element: Text (Static) - Store Name (Large, Bold)
+  Element: Text (Static) - Store Address (Small)
+  Element: Text (Dynamic) - Document Number
+  Element: Text (Dynamic) - Document Date
+```
+
+### Repeating Line Items
+```
+Section: "Items" (Repeating, DataSource: Items)
+  Element: Table - Quantity (10% width)
+  Element: Table - Description (60% width)
+  Element: Table - Price (30% width, right-aligned)
+```
+
+### Footer with QR
+```
+Section: "Footer" (Static, Center)
+  Element: Text (Dynamic) - Total (Large, Bold)
+  Element: QR - Payment URL (Size: 6)
+  Element: Text (Static) - "Gracias por su compra"
+```
+
+## Troubleshooting
+
+<AccordionGroup>
+  <Accordion title="Template not saving">
+    - Ensure template name is not empty
+    - Check that all required data sources are selected
+    - Verify you have write permissions to the templates directory
+  </Accordion>
+
+  <Accordion title="Data not appearing in print">
+    - Confirm the data source field name matches exactly (case-sensitive)
+    - Ensure the data is present in the print job payload
+    - Check that dynamic elements have "Source" configured, not "Value"
+  </Accordion>
+
+  <Accordion title="Layout looks wrong when printed">
+    - Verify paper width matches printer configuration (58mm vs 80mm)
+    - Avoid using table widths that exceed 100% total
+    - Test alignment with different paper sizes
+  </Accordion>
+
+  <Accordion title="Editor is slow or unresponsive">
+    - Close and reopen the editor
+    - Reduce the number of elements in large repeating sections
+    - Clear browser cache if using web interface
+  </Accordion>
+</AccordionGroup>
+
+## Related Documentation
+
+<CardGroup cols={2}>
+  <Card title="Printer Configuration" icon="printer" href="/guides/printer-configuration">
+    Configure printers for your templates
+  </Card>
+  <Card title="API Reference" icon="code" href="/api-reference">
+    Template API endpoints
+  </Card>
+</CardGroup>

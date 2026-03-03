@@ -1,0 +1,272 @@
+---
+title: 'Print Jobs API'
+description: 'Send print jobs to thermal printers via WebSocket'
+---
+
+## Print Job Request
+
+Send a print job to a configured thermal printer.
+
+### Message Format
+
+```json
+{
+  "JobId": "job_12345",
+  "StationId": "STATION_001",
+  "PrinterId": "PRINTER_001",
+  "DocumentType": "ticket_venta",
+  "Document": {
+    "Number": "FAC-001234",
+    "Date": "2024-01-15",
+    "CustomerName": "John Doe",
+    "Items": [
+      {
+        "Name": "Product A",
+        "Quantity": 2,
+        "Price": 10.50,
+        "Total": 21.00
+      }
+    ],
+    "Subtotal": 21.00,
+    "Tax": 1.68,
+    "Total": 22.68
+  },
+  "Images": [
+    {
+      "Id": "logo",
+      "Base64": "iVBORw0KGgoAAAANSUhEUgAAAAUA...",
+      "Align": "center",
+      "WidthMm": 40
+    }
+  ],
+  "Barcodes": [
+    {
+      "Type": "CODE128",
+      "Value": "FAC-001234",
+      "Height": 50,
+      "Width": 2,
+      "Hri": true,
+      "ItemId": "item_001",
+      "Name": "Product A",
+      "Price": "$10.50"
+    }
+  ],
+  "QRs": [
+    {
+      "Value": "https://example.com/invoice/001234",
+      "Size": 6,
+      "Align": "center"
+    }
+  ]
+}
+```
+
+### Request Fields
+
+<ParamField path="JobId" type="string" required>
+  Unique identifier for this print job. Used to match results with requests.
+</ParamField>
+
+<ParamField path="StationId" type="string" required>
+  Identifier of the station or point-of-sale terminal originating the request.
+</ParamField>
+
+<ParamField path="PrinterId" type="string" required>
+  Identifier of the target printer. Must match a printer ID in APM configuration.
+</ParamField>
+
+<ParamField path="DocumentType" type="string" required>
+  Type of document to print. Determines which template is used. Common values:
+  - `ticket_venta` - Sales receipt
+  - `comanda` - Kitchen order
+  - `factura_electronica` - Electronic invoice
+  - `sticker` - Product label/sticker
+</ParamField>
+
+<ParamField path="Document" type="object" required>
+  The main document data. Structure varies by document type and template configuration. Contains the business data to be printed (invoice details, order items, etc.).
+</ParamField>
+
+<ParamField path="Images" type="array">
+  List of images to include in the printout (e.g., logos, signatures).
+  
+  <Expandable title="Image Properties">
+    <ParamField path="Id" type="string">
+      Unique identifier for the image.
+    </ParamField>
+    
+    <ParamField path="Base64" type="string" required>
+      Image data encoded in Base64 format.
+    </ParamField>
+    
+    <ParamField path="Align" type="string">
+      Alignment of the image: `left`, `center`, or `right`.
+    </ParamField>
+    
+    <ParamField path="WidthMm" type="integer" required>
+      Desired width of the image in millimeters.
+    </ParamField>
+  </Expandable>
+</ParamField>
+
+<ParamField path="Barcodes" type="array">
+  List of barcodes to print.
+  
+  <Expandable title="Barcode Properties">
+    <ParamField path="Type" type="string" required>
+      Barcode type: `CODE128`, `EAN13`, `UPC-A`, etc.
+    </ParamField>
+    
+    <ParamField path="Value" type="string" required>
+      Data to encode in the barcode.
+    </ParamField>
+    
+    <ParamField path="Height" type="integer" required>
+      Height of the barcode in printer units.
+    </ParamField>
+    
+    <ParamField path="Width" type="integer">
+      Width of the barcode module (1-5).
+    </ParamField>
+    
+    <ParamField path="Hri" type="boolean" required>
+      Whether to print Human Readable Interpretation (text below barcode).
+    </ParamField>
+    
+    <ParamField path="ItemId" type="string">
+      Associated item identifier.
+    </ParamField>
+    
+    <ParamField path="Name" type="string">
+      Associated item name.
+    </ParamField>
+    
+    <ParamField path="Price" type="string">
+      Associated item price.
+    </ParamField>
+  </Expandable>
+</ParamField>
+
+<ParamField path="QRs" type="array">
+  List of QR codes to print.
+  
+  <Expandable title="QR Properties">
+    <ParamField path="Value" type="string" required>
+      Data to encode in the QR code (URL, text, etc.).
+    </ParamField>
+    
+    <ParamField path="Size" type="integer" required>
+      Size of the QR module in pixels (1-16).
+    </ParamField>
+    
+    <ParamField path="Align" type="string" required>
+      Alignment: `left`, `center`, or `right`.
+    </ParamField>
+  </Expandable>
+</ParamField>
+
+## Print Job Result
+
+After processing a print job, APM sends a result message back to the requesting client.
+
+### Message Format
+
+#### Success
+
+```json
+{
+  "JobId": "job_12345",
+  "Status": "DONE",
+  "ErrorMessage": null
+}
+```
+
+#### Error
+
+```json
+{
+  "JobId": "job_12345",
+  "Status": "ERROR",
+  "ErrorMessage": "Printer PRINTER_001 not found in configuration"
+}
+```
+
+### Response Fields
+
+<ParamField path="JobId" type="string">
+  The job identifier from the original request.
+</ParamField>
+
+<ParamField path="Status" type="string">
+  Final status of the print job:
+  - `DONE` - Print job completed successfully
+  - `ERROR` - Print job failed
+</ParamField>
+
+<ParamField path="ErrorMessage" type="string">
+  Error details if Status is `ERROR`, otherwise null.
+</ParamField>
+
+## Example: Complete Print Flow
+
+```javascript
+const ws = new WebSocket('ws://localhost:7000/websocket/');
+
+ws.onopen = () => {
+  // Send print job
+  const printJob = {
+    JobId: `job_${Date.now()}`,
+    StationId: 'STATION_001',
+    PrinterId: 'PRINTER_001',
+    DocumentType: 'ticket_venta',
+    Document: {
+      Number: 'FAC-001234',
+      Date: new Date().toISOString(),
+      Items: [
+        { Name: 'Coffee', Quantity: 1, Price: 3.50, Total: 3.50 }
+      ],
+      Total: 3.50
+    },
+    Images: [],
+    Barcodes: [],
+    QRs: []
+  };
+  
+  ws.send(JSON.stringify(printJob));
+};
+
+ws.onmessage = (event) => {
+  const result = JSON.parse(event.data);
+  
+  // Check if this is a print job result
+  if (result.JobId && result.Status) {
+    if (result.Status === 'DONE') {
+      console.log(`Print job ${result.JobId} completed successfully`);
+    } else if (result.Status === 'ERROR') {
+      console.error(`Print job ${result.JobId} failed: ${result.ErrorMessage}`);
+    }
+  }
+};
+```
+
+## Document Types
+
+The `DocumentType` field determines which print template is used. Common types:
+
+| Document Type | Description | Typical Use |
+|--------------|-------------|-------------|
+| `ticket_venta` | Sales receipt | Point of sale transactions |
+| `comanda` | Kitchen/bar order | Restaurant orders |
+| `factura_electronica` | Electronic invoice | Tax invoices |
+| `sticker` | Product label | Inventory labels |
+
+<Info>
+Each document type requires a corresponding template to be configured in APM. See [Template Updates](/api/template-updates) for how to manage templates.
+</Info>
+
+## Source Reference
+
+- Request model: `source/Core/Models/PrintJobRequest.cs:9`
+- Result model: `source/Core/Models/PrintJobResult.cs:7`
+- WebSocket handler: `source/Infraestructure/Services/WebSocketServerService.cs:478`
+- Event handler: `source/WorkerService/Worker.cs:30`

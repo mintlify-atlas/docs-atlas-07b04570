@@ -1,0 +1,468 @@
+---
+title: 'Template Updates API'
+description: 'Create and update print templates remotely via WebSocket'
+---
+
+## Overview
+
+APM allows you to remotely create or update print templates via WebSocket. This enables dynamic template management from your web application without manually editing configuration files.
+
+## Update Template Request
+
+Send a template update to APM.
+
+### Message Format
+
+```json
+{
+  "Action": "UpdateTemplate",
+  "Template": {
+    "TemplateId": "template_ticket_001",
+    "Name": "Sales Receipt",
+    "DocumentType": "ticket_venta",
+    "Sections": [
+      {
+        "Name": "Header",
+        "Type": "Static",
+        "Order": 1,
+        "Elements": [
+          {
+            "Type": "Text",
+            "StaticValue": "My Store Name",
+            "Format": "Bold,Large",
+            "Align": "Center",
+            "Order": 1
+          },
+          {
+            "Type": "Text",
+            "Label": "Invoice: ",
+            "Source": "Number",
+            "Format": "Bold",
+            "Align": "Left",
+            "Order": 2
+          }
+        ]
+      },
+      {
+        "Name": "Items",
+        "Type": "Table",
+        "DataSource": "Items",
+        "Order": 2,
+        "Elements": [
+          {
+            "Type": "Text",
+            "Source": "Name",
+            "WidthPercentage": 50,
+            "Align": "Left",
+            "Order": 1
+          },
+          {
+            "Type": "Text",
+            "Source": "Quantity",
+            "WidthPercentage": 15,
+            "Align": "Center",
+            "Order": 2
+          },
+          {
+            "Type": "Text",
+            "Source": "Price",
+            "Format": "Currency",
+            "WidthPercentage": 35,
+            "Align": "Right",
+            "Order": 3
+          }
+        ]
+      },
+      {
+        "Name": "Footer",
+        "Type": "Static",
+        "Order": 3,
+        "Elements": [
+          {
+            "Type": "Text",
+            "Label": "Total: ",
+            "Source": "Total",
+            "Format": "Bold,Large",
+            "Align": "Right",
+            "Order": 1
+          },
+          {
+            "Type": "QR",
+            "Source": "InvoiceUrl",
+            "Size": 6,
+            "Align": "Center",
+            "Order": 2
+          }
+        ]
+      }
+    ],
+    "GlobalStyles": {
+      "FontFamily": "Arial",
+      "FontSize": "12"
+    }
+  }
+}
+```
+
+### Request Fields
+
+<ParamField path="Action" type="string" required>
+  Must be `UpdateTemplate` to update or create a template.
+</ParamField>
+
+<ParamField path="Template" type="object" required>
+  The complete template configuration.
+  
+  <Expandable title="Template Object">
+    <ParamField path="TemplateId" type="string">
+      Unique identifier for the template.
+    </ParamField>
+    
+    <ParamField path="Name" type="string">
+      Human-readable name for the template.
+    </ParamField>
+    
+    <ParamField path="DocumentType" type="string" required>
+      Document type this template handles (e.g., `ticket_venta`, `comanda`, `factura_electronica`).
+    </ParamField>
+    
+    <ParamField path="Sections" type="array" required>
+      List of logical sections in the template.
+      
+      <Expandable title="Section Object">
+        <ParamField path="Name" type="string">
+          Section name (e.g., "Header", "Items", "Footer").
+        </ParamField>
+        
+        <ParamField path="Type" type="string">
+          Section type: `Static`, `Table`, or `Repeated`.
+        </ParamField>
+        
+        <ParamField path="DataSource" type="string">
+          Path to the data object for this section (e.g., "Items" for order items).
+        </ParamField>
+        
+        <ParamField path="Format" type="string">
+          Global format for the section.
+        </ParamField>
+        
+        <ParamField path="Align" type="string">
+          Global alignment for the section: `Left`, `Center`, or `Right`.
+        </ParamField>
+        
+        <ParamField path="Order" type="integer">
+          Print order of this section.
+        </ParamField>
+        
+        <ParamField path="Elements" type="array" required>
+          List of elements within the section.
+          
+          <Expandable title="Element Object">
+            <ParamField path="Type" type="string" required>
+              Element type: `Text`, `Barcode`, `QR`, `Image`, or `Line`.
+            </ParamField>
+            
+            <ParamField path="Label" type="string">
+              Static text label before the value.
+            </ParamField>
+            
+            <ParamField path="Source" type="string">
+              Property path in the document data (e.g., "Sale.Number").
+            </ParamField>
+            
+            <ParamField path="StaticValue" type="string">
+              Fixed value if Source is not provided.
+            </ParamField>
+            
+            <ParamField path="Format" type="string">
+              Format options: `Bold`, `Large`, `Italic`, `Currency`, etc.
+            </ParamField>
+            
+            <ParamField path="Align" type="string">
+              Alignment: `Left`, `Center`, or `Right`.
+            </ParamField>
+            
+            <ParamField path="HeaderFormat" type="string">
+              Specific format for table headers.
+            </ParamField>
+            
+            <ParamField path="HeaderAlign" type="string">
+              Specific alignment for table headers.
+            </ParamField>
+            
+            <ParamField path="WidthPercentage" type="integer">
+              Column width percentage for table columns.
+            </ParamField>
+            
+            <ParamField path="Columns" type="integer">
+              Number of columns for multi-column elements (e.g., barcode grids).
+            </ParamField>
+            
+            <ParamField path="BarWidth" type="integer">
+              Barcode module width (1-5).
+            </ParamField>
+            
+            <ParamField path="Height" type="integer">
+              Height for barcodes or images (1-255).
+            </ParamField>
+            
+            <ParamField path="Size" type="integer">
+              Size for QR codes (1-16) or other elements.
+            </ParamField>
+            
+            <ParamField path="Order" type="integer">
+              Element position within the section.
+            </ParamField>
+            
+            <ParamField path="Properties" type="object">
+              Additional custom properties as key-value pairs.
+            </ParamField>
+          </Expandable>
+        </ParamField>
+      </Expandable>
+    </ParamField>
+    
+    <ParamField path="GlobalStyles" type="object">
+      Global styling options as key-value pairs.
+    </ParamField>
+  </Expandable>
+</ParamField>
+
+## Template Update Result
+
+After processing a template update, APM sends a result message back to the requesting client.
+
+### Message Format
+
+#### Success
+
+```json
+{
+  "Action": "TemplateUpdateResult",
+  "DocumentType": "ticket_venta",
+  "Success": true,
+  "Message": "Plantilla 'ticket_venta' actualizada exitosamente en Windows."
+}
+```
+
+#### Error
+
+```json
+{
+  "Action": "TemplateUpdateResult",
+  "DocumentType": "ticket_venta",
+  "Success": false,
+  "Message": "Error en Windows: Invalid template structure"
+}
+```
+
+### Response Fields
+
+<ParamField path="Action" type="string">
+  Always `TemplateUpdateResult` for template update responses.
+</ParamField>
+
+<ParamField path="DocumentType" type="string">
+  The document type that was updated.
+</ParamField>
+
+<ParamField path="Success" type="boolean">
+  `true` if the template was saved successfully, `false` otherwise.
+</ParamField>
+
+<ParamField path="Message" type="string">
+  Descriptive message about the result.
+</ParamField>
+
+## Example: Complete Template Update Flow
+
+```javascript
+const ws = new WebSocket('ws://localhost:7000/websocket/');
+
+ws.onopen = () => {
+  // Create a simple receipt template
+  const templateUpdate = {
+    Action: 'UpdateTemplate',
+    Template: {
+      TemplateId: 'receipt_simple',
+      Name: 'Simple Receipt',
+      DocumentType: 'ticket_venta',
+      Sections: [
+        {
+          Name: 'Header',
+          Type: 'Static',
+          Order: 1,
+          Elements: [
+            {
+              Type: 'Text',
+              StaticValue: 'RECEIPT',
+              Format: 'Bold,Large',
+              Align: 'Center',
+              Order: 1
+            }
+          ]
+        },
+        {
+          Name: 'Items',
+          Type: 'Table',
+          DataSource: 'Items',
+          Order: 2,
+          Elements: [
+            {
+              Type: 'Text',
+              Source: 'Name',
+              WidthPercentage: 60,
+              Order: 1
+            },
+            {
+              Type: 'Text',
+              Source: 'Total',
+              WidthPercentage: 40,
+              Align: 'Right',
+              Order: 2
+            }
+          ]
+        },
+        {
+          Name: 'Total',
+          Type: 'Static',
+          Order: 3,
+          Elements: [
+            {
+              Type: 'Text',
+              Label: 'TOTAL: ',
+              Source: 'Total',
+              Format: 'Bold,Large',
+              Align: 'Right',
+              Order: 1
+            }
+          ]
+        }
+      ],
+      GlobalStyles: {}
+    }
+  };
+  
+  ws.send(JSON.stringify(templateUpdate));
+};
+
+ws.onmessage = (event) => {
+  const result = JSON.parse(event.data);
+  
+  // Check if this is a template update result
+  if (result.Action === 'TemplateUpdateResult') {
+    if (result.Success) {
+      console.log(`Template updated: ${result.Message}`);
+      // Now you can use this template for printing
+    } else {
+      console.error(`Template update failed: ${result.Message}`);
+    }
+  }
+};
+```
+
+## Section Types
+
+### Static
+
+Prints fixed content or single values from the document.
+
+```json
+{
+  "Name": "Header",
+  "Type": "Static",
+  "Elements": [
+    { "Type": "Text", "StaticValue": "Company Name" },
+    { "Type": "Text", "Source": "InvoiceNumber" }
+  ]
+}
+```
+
+### Table
+
+Iterates over a collection and prints rows.
+
+```json
+{
+  "Name": "Items",
+  "Type": "Table",
+  "DataSource": "Items",
+  "Elements": [
+    { "Type": "Text", "Source": "Name", "WidthPercentage": 50 },
+    { "Type": "Text", "Source": "Price", "WidthPercentage": 50 }
+  ]
+}
+```
+
+### Repeated
+
+Repeats a block of elements for each item in a collection.
+
+```json
+{
+  "Name": "Promotions",
+  "Type": "Repeated",
+  "DataSource": "Promotions",
+  "Elements": [
+    { "Type": "Text", "Source": "Title", "Format": "Bold" },
+    { "Type": "Text", "Source": "Description" }
+  ]
+}
+```
+
+## Element Types
+
+| Type | Description | Common Properties |
+|------|-------------|------------------|
+| `Text` | Text content | `Source`, `StaticValue`, `Label`, `Format`, `Align` |
+| `Barcode` | 1D barcode | `Source`, `BarWidth`, `Height` |
+| `QR` | QR code | `Source`, `Size`, `Align` |
+| `Image` | Image (from document data) | `Source`, `Height` |
+| `Line` | Separator line | `Format` |
+
+## Format Options
+
+Multiple format options can be combined with commas:
+
+- `Bold` - Bold text
+- `Large` - Large font size
+- `Italic` - Italic text
+- `Currency` - Format as currency
+- `Underline` - Underlined text
+
+Example: `"Format": "Bold,Large"`
+
+## Best Practices
+
+1. **Test Templates Locally First**: Create and test templates in the APM configuration before deploying remotely
+2. **Use Descriptive Names**: Give templates and sections clear, descriptive names
+3. **Order Matters**: Use the `Order` property to control the sequence of sections and elements
+4. **Width Percentages**: For table columns, ensure width percentages add up to approximately 100%
+5. **Data Source Paths**: Use dot notation for nested properties (e.g., `"Customer.Name"`)
+
+## Troubleshooting
+
+### Template Not Found When Printing
+
+Ensure the `DocumentType` in your template exactly matches the `DocumentType` in your print requests.
+
+### Template Update Failed
+
+- Verify JSON structure is valid
+- Check that required fields are present
+- Ensure element types are valid
+- Review error message in the result
+
+### Template Renders Incorrectly
+
+- Verify data source paths match your document structure
+- Check width percentages for table columns
+- Ensure format and align values are valid
+
+## Source Reference
+
+- Template model: `source/Core/Models/PrintTemplate.cs:8`
+- Update request model: `source/Core/Models/UpdateTemplateRequest.cs:8`
+- Update result model: `source/Core/Models/TemplateUpdateResult.cs:6`
+- WebSocket handler: `source/Infraestructure/Services/WebSocketServerService.cs:463`
+- Event handler: `source/WorkerService/Worker.cs:37`

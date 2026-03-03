@@ -1,0 +1,396 @@
+---
+title: 'ITemplateRepository'
+description: 'Interface for managing print templates, including thermal and dot matrix templates'
+---
+
+## Overview
+
+The `ITemplateRepository` interface defines the contract for managing print templates in the Appsiel Print Manager. It provides methods for storing, retrieving, and managing both thermal printer templates and dot matrix printer templates.
+
+**Namespace:** `AppsielPrintManager.Core.Interfaces`
+
+## Methods
+
+### GetTemplateByTypeAsync
+
+Retrieves a thermal print template by its document type.
+
+```csharp
+Task<PrintTemplate> GetTemplateByTypeAsync(string documentType)
+```
+
+<ParamField path="documentType" type="string" required>
+  The document type identifier (e.g., "invoice", "receipt", "label")
+</ParamField>
+
+<ResponseField name="return" type="Task<PrintTemplate>">
+  The print template for the specified document type, or null if not found
+</ResponseField>
+
+**Example:**
+
+```csharp
+var template = await templateRepository.GetTemplateByTypeAsync("invoice");
+
+if (template != null)
+{
+    Console.WriteLine($"Template ID: {template.TemplateId}");
+    Console.WriteLine($"Template Name: {template.Name}");
+    Console.WriteLine($"Document Type: {template.DocumentType}");
+}
+else
+{
+    Console.WriteLine("Template not found");
+}
+```
+
+---
+
+### SaveTemplateAsync
+
+Saves or updates a thermal print template.
+
+```csharp
+Task SaveTemplateAsync(PrintTemplate template)
+```
+
+<ParamField path="template" type="PrintTemplate" required>
+  The print template to save or update
+</ParamField>
+
+<ResponseField name="return" type="Task">
+  A task representing the asynchronous save operation
+</ResponseField>
+
+**Example:**
+
+```csharp
+var template = new PrintTemplate
+{
+    TemplateId = Guid.NewGuid().ToString(),
+    Name = "Invoice Template",
+    DocumentType = "invoice",
+    Content = "{{companyName}}\n" +
+              "Invoice: {{invoiceNumber}}\n" +
+              "Date: {{date}}\n" +
+              "---\n" +
+              "{{items}}\n" +
+              "Total: {{total}}",
+    CreatedDate = DateTime.UtcNow,
+    ModifiedDate = DateTime.UtcNow
+};
+
+await templateRepository.SaveTemplateAsync(template);
+Console.WriteLine("Template saved successfully");
+```
+
+---
+
+### GetAllTemplatesAsync
+
+Retrieves all thermal print templates.
+
+```csharp
+Task<List<PrintTemplate>> GetAllTemplatesAsync()
+```
+
+<ResponseField name="return" type="Task<List<PrintTemplate>>">
+  A list of all print templates
+</ResponseField>
+
+**Example:**
+
+```csharp
+var templates = await templateRepository.GetAllTemplatesAsync();
+
+Console.WriteLine($"Total templates: {templates.Count}");
+
+foreach (var template in templates)
+{
+    Console.WriteLine($"- {template.DocumentType}: {template.Name}");
+}
+```
+
+---
+
+### DeleteTemplateAsync
+
+Deletes a template by its identifier.
+
+```csharp
+Task DeleteTemplateAsync(string templateId)
+```
+
+<ParamField path="templateId" type="string" required>
+  The unique identifier of the template to delete
+</ParamField>
+
+<ResponseField name="return" type="Task">
+  A task representing the asynchronous delete operation
+</ResponseField>
+
+**Example:**
+
+```csharp
+await templateRepository.DeleteTemplateAsync("template-id-123");
+Console.WriteLine("Template deleted successfully");
+```
+
+---
+
+### EnsureDefaultTemplatesAsync
+
+Ensures that default templates exist in the repository. Creates default templates if they don't exist.
+
+```csharp
+Task EnsureDefaultTemplatesAsync()
+```
+
+<ResponseField name="return" type="Task">
+  A task representing the asynchronous operation
+</ResponseField>
+
+**Example:**
+
+```csharp
+// Typically called during application startup
+await templateRepository.EnsureDefaultTemplatesAsync();
+Console.WriteLine("Default templates verified");
+```
+
+---
+
+### GetDotMatrixTemplateByTypeAsync
+
+Retrieves a dot matrix print template by its document type.
+
+```csharp
+Task<DotMatrixTemplate?> GetDotMatrixTemplateByTypeAsync(string documentType)
+```
+
+<ParamField path="documentType" type="string" required>
+  The document type identifier for the dot matrix template
+</ParamField>
+
+<ResponseField name="return" type="Task<DotMatrixTemplate?>">
+  The dot matrix template for the specified document type, or null if not found
+</ResponseField>
+
+**Example:**
+
+```csharp
+var dotMatrixTemplate = await templateRepository.GetDotMatrixTemplateByTypeAsync("invoice");
+
+if (dotMatrixTemplate != null)
+{
+    Console.WriteLine($"Template ID: {dotMatrixTemplate.TemplateId}");
+    Console.WriteLine($"Template Name: {dotMatrixTemplate.Name}");
+    Console.WriteLine($"Page Width: {dotMatrixTemplate.PageWidth}");
+    Console.WriteLine($"Page Height: {dotMatrixTemplate.PageHeight}");
+}
+else
+{
+    Console.WriteLine("Dot matrix template not found");
+}
+```
+
+---
+
+### SaveDotMatrixTemplateAsync
+
+Saves or updates a dot matrix print template.
+
+```csharp
+Task SaveDotMatrixTemplateAsync(DotMatrixTemplate template)
+```
+
+<ParamField path="template" type="DotMatrixTemplate" required>
+  The dot matrix template to save or update
+</ParamField>
+
+<ResponseField name="return" type="Task">
+  A task representing the asynchronous save operation
+</ResponseField>
+
+**Example:**
+
+```csharp
+var dotMatrixTemplate = new DotMatrixTemplate
+{
+    TemplateId = Guid.NewGuid().ToString(),
+    Name = "Dot Matrix Invoice",
+    DocumentType = "invoice",
+    PageWidth = 80,
+    PageHeight = 297,
+    Sections = new List<TemplateSection>
+    {
+        new TemplateSection
+        {
+            Name = "Header",
+            Fields = new List<TemplateField>
+            {
+                new TemplateField
+                {
+                    Name = "CompanyName",
+                    X = 10,
+                    Y = 10,
+                    FontSize = 14,
+                    IsBold = true
+                }
+            }
+        }
+    },
+    CreatedDate = DateTime.UtcNow,
+    ModifiedDate = DateTime.UtcNow
+};
+
+await templateRepository.SaveDotMatrixTemplateAsync(dotMatrixTemplate);
+Console.WriteLine("Dot matrix template saved successfully");
+```
+
+## Complete Usage Example
+
+```csharp
+public class TemplateManager
+{
+    private readonly ITemplateRepository _templateRepository;
+    private readonly ILogger<TemplateManager> _logger;
+
+    public TemplateManager(
+        ITemplateRepository templateRepository,
+        ILogger<TemplateManager> logger)
+    {
+        _templateRepository = templateRepository;
+        _logger = logger;
+    }
+
+    public async Task InitializeTemplatesAsync()
+    {
+        // Ensure default templates exist
+        await _templateRepository.EnsureDefaultTemplatesAsync();
+        _logger.LogInformation("Default templates initialized");
+
+        // List all templates
+        var templates = await _templateRepository.GetAllTemplatesAsync();
+        _logger.LogInformation($"Total templates: {templates.Count}");
+    }
+
+    public async Task<PrintTemplate> GetOrCreateTemplateAsync(string documentType)
+    {
+        // Try to get existing template
+        var template = await _templateRepository.GetTemplateByTypeAsync(documentType);
+
+        if (template != null)
+        {
+            _logger.LogInformation($"Found existing template for {documentType}");
+            return template;
+        }
+
+        // Create new template if not found
+        _logger.LogWarning($"Template not found for {documentType}, creating default");
+
+        template = new PrintTemplate
+        {
+            TemplateId = Guid.NewGuid().ToString(),
+            Name = $"{documentType} Template",
+            DocumentType = documentType,
+            Content = CreateDefaultContent(documentType),
+            CreatedDate = DateTime.UtcNow,
+            ModifiedDate = DateTime.UtcNow
+        };
+
+        await _templateRepository.SaveTemplateAsync(template);
+        return template;
+    }
+
+    public async Task UpdateTemplateAsync(string templateId, string newContent)
+    {
+        var templates = await _templateRepository.GetAllTemplatesAsync();
+        var template = templates.FirstOrDefault(t => t.TemplateId == templateId);
+
+        if (template == null)
+        {
+            throw new InvalidOperationException($"Template {templateId} not found");
+        }
+
+        template.Content = newContent;
+        template.ModifiedDate = DateTime.UtcNow;
+
+        await _templateRepository.SaveTemplateAsync(template);
+        _logger.LogInformation($"Template {templateId} updated successfully");
+    }
+
+    public async Task<DotMatrixTemplate> GetDotMatrixTemplateAsync(string documentType)
+    {
+        var template = await _templateRepository.GetDotMatrixTemplateByTypeAsync(documentType);
+
+        if (template == null)
+        {
+            throw new InvalidOperationException(
+                $"Dot matrix template not found for {documentType}"
+            );
+        }
+
+        return template;
+    }
+
+    private string CreateDefaultContent(string documentType)
+    {
+        return documentType switch
+        {
+            "receipt" => "{{storeName}}\n" +
+                        "Receipt: {{receiptNumber}}\n" +
+                        "{{items}}\n" +
+                        "Total: {{total}}",
+            "invoice" => "{{companyName}}\n" +
+                        "Invoice: {{invoiceNumber}}\n" +
+                        "{{items}}\n" +
+                        "Total: {{total}}",
+            _ => "{{documentType}}\n{{content}}"
+        };
+    }
+
+    public async Task CleanupOldTemplatesAsync(DateTime olderThan)
+    {
+        var templates = await _templateRepository.GetAllTemplatesAsync();
+        var oldTemplates = templates.Where(t => t.ModifiedDate < olderThan).ToList();
+
+        foreach (var template in oldTemplates)
+        {
+            await _templateRepository.DeleteTemplateAsync(template.TemplateId);
+            _logger.LogInformation($"Deleted old template: {template.Name}");
+        }
+
+        _logger.LogInformation($"Cleaned up {oldTemplates.Count} old templates");
+    }
+}
+```
+
+## Template Types
+
+### Thermal Templates
+
+Thermal templates (`PrintTemplate`) are used for thermal receipt printers. They typically use a simple text-based format with placeholder variables.
+
+**Common use cases:**
+- Point of sale receipts
+- Kitchen orders
+- Shipping labels
+- Tickets
+
+### Dot Matrix Templates
+
+Dot matrix templates (`DotMatrixTemplate`) are used for dot matrix printers and support precise positioning of fields on the page.
+
+**Common use cases:**
+- Invoices with fixed layouts
+- Pre-printed forms
+- Multi-part forms
+- Government documents
+
+## See Also
+
+- [Print Template](/api/models/print-template)
+- [IPrintService](/api/interfaces/print-service)
+- [Template System Overview](/templates/overview)
+- [Template Editor Guide](/guides/template-editor)

@@ -1,0 +1,48 @@
+---
+title: "ScaleData"
+description: "Representa los datos de lectura de una báscula. Esta información se envía al POS Web."
+---
+
+## Properties
+
+<ParamField path="Type" type="string" default="SCALE_READING">
+  Tipo de evento, indicando que es una lectura de báscula (ej. "SCALE_READING").
+</ParamField>
+
+<ParamField path="StationId" type="string" required>
+  Identificador de la estación desde donde se realiza la lectura.
+</ParamField>
+
+<ParamField path="ScaleId" type="string" required>
+  Identificador de la báscula que realizó la lectura.
+</ParamField>
+
+<ParamField path="Weight" type="decimal" required>
+  El peso medido por la báscula.
+</ParamField>
+
+<ParamField path="Unit" type="string" required>
+  Unidad de medida del peso (ej. "kg", "g", "lb").
+</ParamField>
+
+<ParamField path="Stable" type="boolean" required>
+  Indica si la lectura del peso es estable.
+</ParamField>
+
+<ParamField path="Timestamp" type="DateTime" required>
+  Marca de tiempo (timestamp) de cuándo se realizó la lectura.
+</ParamField>
+
+## JSON Example
+
+```json
+{
+  "Type": "SCALE_READING",
+  "StationId": "CAJA_01",
+  "ScaleId": "SCALE_01",
+  "Weight": 2.450,
+  "Unit": "kg",
+  "Stable": true,
+  "Timestamp": "2026-03-03T10:30:45.123Z"
+}
+```

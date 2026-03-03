@@ -1,0 +1,248 @@
+---
+title: "PrintTemplate"
+description: "Representa la configuración completa de una plantilla de impresión."
+---
+
+## PrintTemplate Properties
+
+<ParamField path="TemplateId" type="string">
+  Identificador único de la plantilla de impresión.
+</ParamField>
+
+<ParamField path="Name" type="string">
+  Nombre descriptivo de la plantilla.
+</ParamField>
+
+<ParamField path="DocumentType" type="string">
+  Tipo de documento al que aplica esta plantilla (ej. "ticket_venta", "comanda", "factura_electronica").
+</ParamField>
+
+<ParamField path="Sections" type="array">
+  Lista de secciones que componen la plantilla. Cada sección representa una parte lógica del ticket.
+  
+  <Expandable title="TemplateSection[]">
+    Array of template sections. See TemplateSection properties below.
+  </Expandable>
+</ParamField>
+
+<ParamField path="GlobalStyles" type="object">
+  Diccionario de estilos globales aplicables a toda la plantilla.
+  
+  <Expandable title="Dictionary<string, string>">
+    Key-value pairs defining global styles for the template.
+  </Expandable>
+</ParamField>
+
+## TemplateSection Properties
+
+Representa una sección lógica dentro del ticket (ej: Header, Items, Totals, Footer).
+
+<ParamField path="Name" type="string">
+  Nombre identificador de la sección (ej. "Header", "Items", "Totals", "Footer").
+</ParamField>
+
+<ParamField path="Type" type="string">
+  Tipo de sección: "Static", "Table", "Repeated".
+</ParamField>
+
+<ParamField path="DataSource" type="string">
+  Ruta al objeto de datos que alimenta esta sección (ej. "Document.Items").
+</ParamField>
+
+<ParamField path="Format" type="string">
+  Formato global para la sección (ej. "Bold", "Large").
+</ParamField>
+
+<ParamField path="Align" type="string">
+  Alineación global para la sección ("Left", "Center", "Right").
+</ParamField>
+
+<ParamField path="Order" type="integer">
+  Orden de impresión de la sección en el ticket.
+</ParamField>
+
+<ParamField path="Elements" type="array">
+  Lista de elementos que componen esta sección.
+  
+  <Expandable title="TemplateElement[]">
+    Array of template elements. See TemplateElement properties below.
+  </Expandable>
+</ParamField>
+
+## TemplateElement Properties
+
+Define un elemento individual o una columna dentro de una sección.
+
+<ParamField path="Type" type="string">
+  Tipo de elemento: "Text", "Barcode", "QR", "Image", "Line".
+</ParamField>
+
+<ParamField path="Label" type="string">
+  Texto estático antes del valor (etiqueta del campo).
+</ParamField>
+
+<ParamField path="Source" type="string">
+  Ruta de la propiedad del modelo de datos (ej: "Sale.Number", "Customer.Name").
+</ParamField>
+
+<ParamField path="StaticValue" type="string">
+  Valor fijo si Source es nulo. Útil para textos estáticos.
+</ParamField>
+
+<ParamField path="Format" type="string">
+  Formato del elemento: "Bold", "Large", "Italic", etc.
+</ParamField>
+
+<ParamField path="Align" type="string">
+  Alineación del elemento: "Left", "Center", "Right".
+</ParamField>
+
+<ParamField path="HeaderFormat" type="string">
+  Formato específico para el encabezado de la columna (en tablas).
+</ParamField>
+
+<ParamField path="HeaderAlign" type="string">
+  Alineación específica para el encabezado de la columna (en tablas).
+</ParamField>
+
+<ParamField path="WidthPercentage" type="integer">
+  Porcentaje de ancho para columnas de tabla (0-100).
+</ParamField>
+
+<ParamField path="Columns" type="integer">
+  Número de columnas para elementos múltiples por fila (ej: barcodes).
+</ParamField>
+
+<ParamField path="BarWidth" type="integer">
+  Ancho del módulo de código de barras (1-5).
+</ParamField>
+
+<ParamField path="Height" type="integer">
+  Altura del código de barras o imagen (1-255).
+</ParamField>
+
+<ParamField path="Size" type="integer">
+  Tamaño para QR (1-16) u otros elementos.
+</ParamField>
+
+<ParamField path="Order" type="integer">
+  Posición del elemento dentro de la sección.
+</ParamField>
+
+<ParamField path="Properties" type="object">
+  Diccionario de propiedades adicionales específicas del elemento.
+  
+  <Expandable title="Dictionary<string, string>">
+    Key-value pairs for additional element-specific properties.
+  </Expandable>
+</ParamField>
+
+## JSON Example
+
+```json
+{
+  "TemplateId": "template_ticket_venta_v1",
+  "Name": "Ticket de Venta Estándar",
+  "DocumentType": "ticket_venta",
+  "Sections": [
+    {
+      "Name": "Header",
+      "Type": "Static",
+      "DataSource": "Document",
+      "Format": "Bold",
+      "Align": "Center",
+      "Order": 1,
+      "Elements": [
+        {
+          "Type": "Text",
+          "Source": "Company.Name",
+          "Format": "Large,Bold",
+          "Align": "Center",
+          "Order": 1
+        },
+        {
+          "Type": "Text",
+          "Label": "NIT: ",
+          "Source": "Company.TaxId",
+          "Align": "Center",
+          "Order": 2
+        }
+      ]
+    },
+    {
+      "Name": "Items",
+      "Type": "Table",
+      "DataSource": "Document.Items",
+      "Order": 2,
+      "Elements": [
+        {
+          "Type": "Text",
+          "Label": "Cant",
+          "Source": "Quantity",
+          "WidthPercentage": 15,
+          "HeaderFormat": "Bold",
+          "Order": 1
+        },
+        {
+          "Type": "Text",
+          "Label": "Descripción",
+          "Source": "Description",
+          "WidthPercentage": 50,
+          "HeaderFormat": "Bold",
+          "Order": 2
+        },
+        {
+          "Type": "Text",
+          "Label": "Total",
+          "Source": "Total",
+          "WidthPercentage": 35,
+          "Align": "Right",
+          "HeaderFormat": "Bold",
+          "HeaderAlign": "Right",
+          "Order": 3
+        }
+      ]
+    },
+    {
+      "Name": "Totals",
+      "Type": "Static",
+      "DataSource": "Document",
+      "Order": 3,
+      "Elements": [
+        {
+          "Type": "Text",
+          "Label": "TOTAL: ",
+          "Source": "Total",
+          "Format": "Large,Bold",
+          "Align": "Right",
+          "Order": 1
+        }
+      ]
+    },
+    {
+      "Name": "Footer",
+      "Type": "Static",
+      "Order": 4,
+      "Elements": [
+        {
+          "Type": "QR",
+          "Source": "Document.QRData",
+          "Size": 6,
+          "Align": "Center",
+          "Order": 1
+        },
+        {
+          "Type": "Text",
+          "StaticValue": "Gracias por su compra",
+          "Align": "Center",
+          "Order": 2
+        }
+      ]
+    }
+  ],
+  "GlobalStyles": {
+    "FontFamily": "Monospace",
+    "FontSize": "12"
+  }
+}
+```

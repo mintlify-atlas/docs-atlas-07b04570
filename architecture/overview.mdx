@@ -1,0 +1,307 @@
+---
+title: System Architecture Overview
+description: High-level overview of the APM system architecture, components, and deployment model
+---
+
+## Introduction
+
+Appsiel Print Manager (APM) is a cross-platform print management system built with .NET MAUI and C#. The system follows a clean, layered architecture pattern with clear separation of concerns between business logic, infrastructure, and presentation layers.
+
+## Architecture Diagram
+
+```mermaid
+graph TB
+    subgraph "Client Layer"
+        Web["Web Browser<br/>(Appsiel Web App)"]
+    end
+    
+    subgraph "APM System"
+        subgraph "Windows Desktop"
+            Tray["TrayApp<br/>(System Tray)"]
+            Worker["WorkerService<br/>(Windows Service)"]
+            UI["UI Application<br/>(.NET MAUI)"]
+        end
+        
+        subgraph "Android/Mobile"
+            MobileUI["UI Application<br/>(.NET MAUI)"]
+        end
+        
+        subgraph "Core Layers"
+            Core["Core Layer<br/>(Interfaces & Models)"]
+            Infra["Infrastructure Layer<br/>(Services & Repositories)"]
+        end
+    end
+    
+    subgraph "External Systems"
+        Printer["Thermal Printers<br/>(TCP/IP, USB, IPP)"]
+        DotMatrix["Dot Matrix Printers<br/>(LX-300)"]
+        Scale["Serial Scales"]
+    end
+    
+    Web -->|WebSocket| Worker
+    Web -->|WebSocket| MobileUI
+    Tray -.->|Manages| Worker
+    Tray -.->|Launches| UI
+    UI -->|Controls| Worker
+    Worker --> Core
+    UI --> Core
+    MobileUI --> Core
+    Core --> Infra
+    Infra -->|ESC/POS| Printer
+    Infra -->|ESC/P| DotMatrix
+    Infra -->|Serial| Scale
+```
+
+## System Components
+
+The APM system consists of six main components:
+
+### 1. Core Layer
+- **Purpose**: Domain models and contracts
+- **Location**: `source/Core/`
+- **Dependencies**: None (pure .NET)
+- **Key Elements**:
+  - Interface definitions (`IWebSocketService`, `IPrintService`, `ITicketRenderer`, etc.)
+  - Domain models (`PrintJobRequest`, `PrinterSettings`, `ScaleData`, etc.)
+  - Enumerations and data contracts
+
+### 2. Infrastructure Layer
+- **Purpose**: Concrete implementations of core interfaces
+- **Location**: `source/Infraestructure/`
+- **Dependencies**: Core layer only
+- **Key Services**:
+  - `WebSocketServerService` - WebSocket server implementation
+  - `PrintService` - Print job orchestration
+  - `TicketRendererService` - Template rendering engine
+  - `EscPosGeneratorService` - ESC/POS command generation (thermal printers)
+  - `EscPGeneratorService` - ESC/P command generation (dot matrix printers)
+  - `SerialScaleService` - Serial scale communication
+  - Repository implementations for settings and templates
+
+### 3. WorkerService (Windows Service)
+- **Purpose**: Background print server for Windows
+- **Location**: `source/WorkerService/`
+- **Platform**: Windows only
+- **Key Features**:
+  - Runs as a Windows Service (always-on)
+  - Hosts WebSocket server on port 7000
+  - Processes print jobs from web clients
+  - Manages template updates
+  - Validates and ensures default templates exist
+
+### 4. UI Application (.NET MAUI)
+- **Purpose**: Cross-platform management interface
+- **Location**: `source/UI/`
+- **Platforms**: Windows, Android
+- **Key Features**:
+  - Printer configuration and management
+  - Scale configuration and monitoring
+  - Template editor
+  - System logs viewer
+  - Settings management
+  - Platform-specific services (Windows: service management, Android: WebSocket client)
+
+### 5. TrayApp (System Tray)
+- **Purpose**: Windows system tray integration
+- **Location**: `source/TrayApp/`
+- **Platform**: Windows only (WPF)
+- **Key Features**:
+  - System tray icon and menu
+  - WorkerService start/stop control
+  - Launch UI application
+  - Service status monitoring
+
+### 6. ConsoleApp
+- **Purpose**: Command-line testing and debugging
+- **Location**: `source/ConsoleApp/`
+- **Platform**: All platforms
+
+## Layered Architecture
+
+APM follows the **Clean Architecture** pattern with clear dependency rules:
+
+```mermaid
+graph BT
+    Presentation["Presentation Layer<br/>(UI, WorkerService, TrayApp)"]
+    Infrastructure["Infrastructure Layer<br/>(Services, Repositories)"]
+    Core["Core Layer<br/>(Interfaces, Models)"]
+    
+    Infrastructure --> Core
+    Presentation --> Core
+    Presentation --> Infrastructure
+    
+    style Core fill:#4CAF50
+    style Infrastructure fill:#2196F3
+    style Presentation fill:#FF9800
+```
+
+### Dependency Rules
+
+1. **Core Layer** has no dependencies - it defines the contracts
+2. **Infrastructure Layer** depends only on Core - it implements the contracts
+3. **Presentation Layer** depends on both Core and Infrastructure
+4. All dependencies point inward toward Core
+
+### Benefits
+
+- **Testability**: Core business logic can be tested independently
+- **Maintainability**: Changes to infrastructure don't affect core logic
+- **Flexibility**: Easy to swap implementations (e.g., different storage providers)
+- **Platform Independence**: Core layer is platform-agnostic
+
+## Communication Flow
+
+### Print Job Flow
+
+```mermaid
+sequenceDiagram
+    participant Web as Web Browser
+    participant WS as WebSocket Server
+    participant Worker as Worker Service
+    participant Print as Print Service
+    participant Renderer as Ticket Renderer
+    participant Generator as ESC/POS Generator
+    participant Printer as Printer
+    
+    Web->>WS: Send PrintJobRequest (JSON)
+    WS->>Worker: OnPrintJobReceived event
+    Worker->>Print: ProcessPrintJobAsync()
+    Print->>Print: Validate printer settings
+    Print->>Print: Deserialize document data
+    Print->>Renderer: RenderTicketAsync()
+    Renderer-->>Print: TicketContent
+    Print->>Generator: GenerateEscPosCommandsAsync()
+    Generator-->>Print: byte[] ESC/POS commands
+    Print->>Printer: Send commands (TCP/IP/USB/IPP)
+    Printer-->>Print: Success/Failure
+    Print-->>Worker: PrintJobResult
+    Worker->>WS: SendPrintJobResultAsync()
+    WS->>Web: Return result (JSON)
+```
+
+### Template Update Flow
+
+```mermaid
+sequenceDiagram
+    participant Web as Web Browser
+    participant WS as WebSocket Server
+    participant Worker as Worker Service
+    participant Repo as Template Repository
+    
+    Web->>WS: Send PrintTemplate (JSON)
+    WS->>Worker: OnTemplateUpdateReceived event
+    Worker->>Repo: SaveTemplateAsync(template)
+    Repo-->>Worker: Success/Failure
+    Worker->>WS: SendTemplateUpdateResultAsync()
+    WS->>Web: Return result (JSON)
+```
+
+### Scale Data Flow
+
+```mermaid
+sequenceDiagram
+    participant Scale as Serial Scale
+    participant Service as Scale Service
+    participant WS as WebSocket Server
+    participant Client as Web Client
+    
+    Client->>WS: Subscribe to scale (scaleId)
+    WS->>Service: StartListening(scaleId)
+    Service->>Scale: Open serial port
+    loop Continuous Reading
+        Scale->>Service: Send weight data
+        Service->>Service: Parse data
+        Service->>WS: OnWeightChanged event
+        WS->>Client: Send ScaleData (JSON)
+    end
+    Client->>WS: Unsubscribe from scale
+    WS->>Service: StopListening(scaleId)
+```
+
+## Deployment Models
+
+### Windows Deployment
+
+```
+┌─────────────────────────────────────┐
+│         Windows Machine              │
+├─────────────────────────────────────┤
+│                                      │
+│  ┌──────────────────────────────┐   │
+│  │  WorkerService.exe           │   │
+│  │  (Windows Service)           │   │
+│  │  - WebSocket Server :7000    │   │
+│  │  - Auto-start on boot        │   │
+│  └──────────────────────────────┘   │
+│                                      │
+│  ┌──────────────────────────────┐   │
+│  │  TrayApp.exe                 │   │
+│  │  (System Tray)               │   │
+│  │  - Auto-start on login       │   │
+│  └──────────────────────────────┘   │
+│                                      │
+│  ┌──────────────────────────────┐   │
+│  │  UI.exe                      │   │
+│  │  (.NET MAUI App)             │   │
+│  │  - On-demand launch          │   │
+│  └──────────────────────────────┘   │
+│                                      │
+└─────────────────────────────────────┘
+```
+
+### Android Deployment
+
+```
+┌─────────────────────────────────────┐
+│        Android Device                │
+├─────────────────────────────────────┤
+│                                      │
+│  ┌──────────────────────────────┐   │
+│  │  APM.apk                     │   │
+│  │  (.NET MAUI App)             │   │
+│  │  - WebSocket Server          │   │
+│  │  - Full UI                   │   │
+│  │  - Background service        │   │
+│  └──────────────────────────────┘   │
+│                                      │
+└─────────────────────────────────────┘
+```
+
+## Data Storage
+
+APM uses JSON-based file storage for configuration:
+
+- **Printer Settings**: `printers.json` - Stores printer configurations
+- **Templates**: Individual JSON files per document type
+- **Dot Matrix Templates**: Separate JSON files for matrix printer layouts
+- **Scale Configuration**: `scales.json` - Serial scale settings
+- **Logs**: File-based logging
+
+### Storage Location
+
+- **Windows**: `%APPDATA%\AppsielPrintManager\`
+- **Android**: Application-specific storage
+
+## Technology Stack
+
+- **Framework**: .NET 10.0
+- **UI Framework**: .NET MAUI (Multi-platform App UI)
+- **Windows Service**: Microsoft.Extensions.Hosting.WindowsServices
+- **WebSocket**: WatsonWebsocket library
+- **Barcode/QR**: ZXing.Net with SkiaSharp
+- **Image Processing**: SkiaSharp
+- **Serial Communication**: System.IO.Ports
+- **DI Container**: Microsoft.Extensions.DependencyInjection
+
+## Security Considerations
+
+1. **Local Network Only**: WebSocket server binds to localhost or local network
+2. **No Authentication**: Designed for trusted local network environments
+3. **Service Isolation**: Windows Service runs with appropriate permissions
+4. **File System Access**: Controlled access to configuration directories
+
+## Next Steps
+
+- [Core Components](/architecture/components) - Detailed component documentation
+- [Worker Service](/architecture/worker-service) - Windows Service deep dive
+- [MAUI Application](/architecture/maui-application) - UI application architecture
