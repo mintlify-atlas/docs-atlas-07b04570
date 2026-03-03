@@ -84,13 +84,13 @@ Create an HTML file with the following code to send a print job via WebSocket:
                 const message = JSON.parse(event.data);
                 console.log('Received:', message);
                 
-                if (message.Type === 'PRINT_JOB_RESULT') {
-                    if (message.Success) {
+                if (message.JobId) {
+                    if (message.Status === 'DONE') {
                         document.getElementById('status').innerHTML += 
                             '<p style="color: green;">Print job successful!</p>';
-                    } else {
+                    } else if (message.Status === 'ERROR') {
                         document.getElementById('status').innerHTML += 
-                            '<p style="color: red;">Print failed: ' + message.Message + '</p>';
+                            '<p style="color: red;">Print failed: ' + message.ErrorMessage + '</p>';
                     }
                 }
             };

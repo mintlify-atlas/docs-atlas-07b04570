@@ -78,11 +78,13 @@ Task ConfigurePrinterAsync(PrinterSettings settings)
 var printerSettings = new PrinterSettings
 {
     PrinterId = "thermal-printer-01",
-    PrinterName = "Thermal Printer",
-    Port = "COM3",
-    BaudRate = 9600,
-    CharactersPerLine = 48,
-    PrinterType = PrinterType.Thermal
+    PrinterType = "Térmica",
+    IpAddress = "192.168.1.100",
+    Port = 9100,
+    PaperWidthMm = 80,
+    ConnectionType = "TCP",
+    BeepOnPrint = false,
+    OpenCashDrawerAfterPrint = false
 };
 
 await printService.ConfigurePrinterAsync(printerSettings);
@@ -114,9 +116,10 @@ var settings = await printService.GetPrinterSettingsAsync("thermal-printer-01");
 
 if (settings != null)
 {
-    Console.WriteLine($"Printer: {settings.PrinterName}");
-    Console.WriteLine($"Port: {settings.Port}");
-    Console.WriteLine($"Characters per line: {settings.CharactersPerLine}");
+    Console.WriteLine($"Printer ID: {settings.PrinterId}");
+    Console.WriteLine($"Type: {settings.PrinterType}");
+    Console.WriteLine($"Connection: {settings.ConnectionType}");
+    Console.WriteLine($"IP: {settings.IpAddress}:{settings.Port}");
 }
 else
 {
@@ -147,7 +150,7 @@ Console.WriteLine($"Total printers configured: {allPrinters.Count}");
 
 foreach (var printer in allPrinters)
 {
-    Console.WriteLine($"- {printer.PrinterId}: {printer.PrinterName} ({printer.PrinterType})");
+    Console.WriteLine($"- {printer.PrinterId} ({printer.PrinterType}) - {printer.ConnectionType}");
 }
 ```
 
@@ -196,11 +199,13 @@ public class PrintController
         var settings = new PrinterSettings
         {
             PrinterId = "receipt-printer",
-            PrinterName = "Receipt Printer",
-            Port = "COM3",
-            BaudRate = 9600,
-            CharactersPerLine = 48,
-            PrinterType = PrinterType.Thermal
+            PrinterType = "Térmica",
+            IpAddress = "192.168.1.100",
+            Port = 9100,
+            PaperWidthMm = 80,
+            ConnectionType = "TCP",
+            BeepOnPrint = true,
+            OpenCashDrawerAfterPrint = false
         };
         await _printService.ConfigurePrinterAsync(settings);
 
